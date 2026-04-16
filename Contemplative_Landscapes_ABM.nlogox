@@ -2,11 +2,17 @@
 <model version="NetLogo 7.0.3" snapToGrid="true">
   <code><![CDATA[extensions [gis nw time]
 
+;; BREEDS AND GLOBALS ;;
+
+;; Location breeds
+
 breed [home-locations home-location]
 breed [work-locations work-location]
 breed [shop-locations shop-location]
 
 breed [landmarks landmark]
+
+;; Network breeds
 
 breed [intersections intersection]   ; nodes = steet intersections
 undirected-link-breed [streets street] ; edges = street segments
@@ -20,6 +26,8 @@ intersections-own [
   sum-archetypal-scores
   visit-count
 ]
+
+;; Resident breed
 
 breed [residents resident]
 
@@ -38,6 +46,7 @@ residents-own [
   CLM-total-scores
 ]
 
+;; Globals
 
 globals [
   start-daytime
