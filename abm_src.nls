@@ -1,0 +1,458 @@
+extensions [gis nw time]
+
+;; INIT ;;
+
+;; Location breeds
+
+breed [home-locations home-location]
+breed [work-locations work-location]
+breed [shop-locations shop-location]
+
+breed [landmarks landmark]
+
+;; Network breeds
+
+breed [intersections intersection]   ; nodes = steet intersections
+undirected-link-breed [streets street] ; edges = street segments
+
+streets-own [
+  street-name
+  length-meters
+]
+
+intersections-own [
+  sum-archetypal-scores
+  visit-count
+]
+
+;; Resident breed
+
+breed [residents resident]
+
+residents-own [
+  resident-id
+  home-node
+  work-node
+  
+  current-goal
+  destination
+  current-path
+  next-node
+  moving?
+  
+  CLM-archetypal-scores
+  CLM-total-scores
+]
+
+;; Globals
+
+globals [
+  start-daytime
+  time-of-day
+  day
+  
+  street-dataset
+  work-dataset
+  home-dataset
+  shop-dataset
+  landmark-dataset
+  
+  intersection-snap-distance
+  meter-conversion-factor
+  view-distance-netlogo 
+]
+
+;; SETUP PROCEDURES ;;
+
+to setup
+  clear-all
+  
+  set start-daytime time:create-with-format "01-01-2000 00:00:00" "dd-MM-yyyy HH:mm:ss"
+  
+  print "Loading GIS data..."
+  
+  ; Load streets
+  set street-dataset gis:load-dataset "data/Overvecht_Street_Network.shp"
+  let gis-envelope gis:envelope-of street-dataset
+  gis:set-world-envelope (gis-envelope)
+  
+  ; Load other GIS data
+  set home-dataset gis:load-dataset "data/Overvecht_Homes.shp"
+  set work-dataset gis:load-dataset "data/Overvecht_Workplaces.shp"
+  set landmark-dataset gis:load-dataset "data/Overvecht_Landmarks.shp"
+  
+  ; Calculate the ratio betwen meters and netlogo units
+  ; Calculate both width and height to account for padding
+  let gis-width item 1 gis-envelope - item 0 gis-envelope
+  let gis-height item 3 gis-envelope - item 2 gis-envelope
+  let netlogo-width max-pxcor - min-pxcor
+  let netlogo-height max-pycor - min-pycor
+  
+  let x-factor netlogo-width / gis-width
+  let y-factor netlogo-height / gis-height
+  set meter-conversion-factor min (list x-factor y-factor)
+  
+  print (word "\t1 meter equals " meter-conversion-factor " net logo units.\n")
+  print "Creating world..."
+    
+  ; Build the network and place locations
+  set intersection-snap-distance 1 * meter-conversion-factor
+  build-network
+  load-home-locations
+  load-work-locations
+  load-landmarks
+  
+  ; Initialize agents, time and ticks
+  reset
+  print "Setup complete!\n"
+end
+
+to reset
+  print "Resetting simulation..."
+  
+  reset-ticks
+  set day 0
+  set time-of-day time:anchor-to-ticks start-daytime 1.0 "minute"
+  time:anchor-schedule start-daytime 1.0 "minute"
+  
+  ask intersections [
+    set sum-archetypal-scores 0
+    set visit-count 0
+  ]
+  
+  print (word "Adding " n-starting-residents " residents...")
+  
+  ask residents [ die ]
+  add-residents n-starting-residents
+end
+
+;; Network
+
+to build-network
+  foreach gis:feature-list-of street-dataset [ feature ->
+    foreach gis:vertex-lists-of feature [ vertex-list ->
+
+      let previous-node nobody
+
+      foreach vertex-list [ vertex ->
+        let location gis:location-of vertex
+        
+        if not empty? location [
+          let x item 0 location
+          let y item 1 location
+          
+          ; Create or reuse an intersection at this coordinate
+          let current-node find-or-create-node x y
+          
+          ; Link consecutive vertices as a street segment
+          if previous-node != nobody and previous-node != current-node [
+            ask previous-node [
+              create-street-with current-node [
+                set length-meters gis:property-value feature "length"
+                set color gray
+              ]
+            ]
+          ]
+          set previous-node current-node
+        ]
+      ]
+    ]
+  ]
+end
+
+to-report find-or-create-node [x y]
+  let existing intersections with [
+    abs (xcor - x) < intersection-snap-distance and abs (ycor - y) < intersection-snap-distance
+  ]
+  
+  if any? existing [ report one-of existing ]
+
+  let new-node nobody
+  create-intersections 1 [
+    setxy x y
+    set color white
+    set shape "circle"
+    set size 0.2
+    set new-node self
+  ]
+  report new-node
+end
+
+;; Locations
+
+to load-home-locations
+  foreach gis:feature-list-of home-dataset [ feature ->
+    let location gis:location-of gis:centroid-of feature 
+    
+    if not empty? location [
+      let x item 0 location
+      let y item 1 location
+      
+      create-home-locations 1 [
+        setxy x y
+        set color lime
+        set shape "square"
+        set size 4
+      ]
+    ]
+  ]
+end
+
+to load-work-locations
+  foreach gis:feature-list-of work-dataset [ feature ->
+    let location gis:location-of gis:centroid-of feature 
+    
+    if not empty? location [
+      let x item 0 location
+      let y item 1 location
+      
+      create-work-locations 1 [
+        setxy x y
+        set color magenta
+        set shape "square"
+        set size 4
+      ]
+    ]
+  ]
+end
+
+to load-landmarks 
+  foreach gis:feature-list-of landmark-dataset [ feature ->
+    let location gis:location-of gis:centroid-of feature 
+    
+    if not empty? location [
+      let x item 0 location
+      let y item 1 location
+      
+      create-landmarks 1 [
+        setxy x y
+        set color yellow
+        set shape "star"
+        set size 6
+      ]
+    ]
+  ]
+end
+
+;; Residents
+
+to add-residents [n]
+  let next-id ifelse-value any? residents
+    [ max [resident-id] of residents + 1 ] [ 0 ]
+  
+  create-residents n [
+    set resident-id next-id
+    set next-id next-id + 1
+    
+    set home-node min-one-of intersections [ distance one-of home-locations ]
+    set work-node min-one-of intersections [ distance one-of work-locations ]
+    
+    move-to home-node
+    set moving? false
+    
+    set CLM-archetypal-scores (list)
+    set CLM-total-scores (list)
+    
+    set color cyan
+    set shape "person"
+    set size 20
+  ]
+  create-schedule
+end
+
+to create-schedule
+   ; If the model has not yet started start the schedule today, otherwise start the schedule tomorrow
+  let schedule-start start-daytime
+  if ticks > 0 [
+    set schedule-start time:plus schedule-start (day + 1) "day"
+  ]
+  
+  time:schedule-repeating-event-with-period residents [ [] -> set-new-destination work-node ] (time:plus schedule-start 8 "hours") 1 "day"
+  time:schedule-repeating-event-with-period residents [ [] -> set-new-destination home-node ] (time:plus schedule-start 17 "hours") 1 "day"
+end
+
+;; GO PROCEDURES ;;
+
+to go
+  ; Advance time by 1 tick
+  time:go-until (ticks + 1)
+  set day floor time:difference-between start-daytime time-of-day "days" 
+  
+  ; Move residents
+  move-residents
+  
+  ; Update outputs
+  update-heatmap
+  update-average-plot
+  update-target-resident-plot
+end
+
+to move-residents
+  let speed (resident-speed / 3.6) * meter-conversion-factor * 60
+
+  ask residents with [ moving? ] [
+    follow-path speed
+  ]
+end
+
+;; Movement
+
+to follow-path [ remaining-speed ]
+  if remaining-speed <= 0 [ stop ]
+    
+  ifelse distance next-node < remaining-speed [
+    ; Node within reach, so move to it and measure exposure
+    set remaining-speed remaining-speed - distance next-node
+    move-to next-node
+    measure-exposure
+
+    ifelse next-node = destination [
+      ; Destination reached
+      set color cyan
+      set moving? false
+    ] 
+    [
+      ; Destination not yet reached, continue following the path
+      set current-path but-first current-path
+      set next-node first current-path
+      follow-path remaining-speed
+    ]
+  ]
+  [
+    ; Move in the direction of the next node
+    face next-node
+    forward remaining-speed
+  ]
+end
+
+to set-new-destination [ new-destination ]
+  if new-destination = destination [ stop ]
+  
+  set destination new-destination
+  
+  nw:set-context intersections streets
+  let path nobody
+  let current-node min-one-of intersections [ distance myself ]
+  ask current-node [ set path nw:turtles-on-weighted-path-to new-destination length-meters ]
+  
+  ifelse path != false and length path > 1 [
+    set color yellow
+    set current-path but-first path
+    set next-node first current-path
+    set moving? true
+  ]
+  [
+    set color red
+    set current-path false
+    set moving? false
+  ]
+end
+
+; to schedule-next-goal
+;   let today time:plus start-daytime day "days"
+  
+;   if current-goal = "home" [
+;     let departure-time time:plus today 8 "hours"
+    
+;     if time:is-after? time-of-day departure-time [
+;       set departure-time time:plus departure-time 1 "day"
+;     ]
+    
+;     time:schedule-event self [ [] -> 
+;       set-new-destination work-node 
+;     ] departure-time
+;   ]
+  
+;   if current-goal = "work" [
+;     let departure-time time:plus today 17 "hours"
+    
+;     if time:is-after? time-of-day departure-time [
+;       set departure-time time:plus departure-time 1 "day"
+;     ]
+    
+;     time:schedule-event self [ [] -> 
+;       set-new-destination home-node 
+;     ] departure-time
+;   ]
+; end
+
+
+;; CLM PROCEDURES ;;
+
+to measure-exposure
+  set view-distance-netlogo view-distance * meter-conversion-factor
+  
+  let archetypal-score measure-archetypal-score
+  set CLM-archetypal-scores lput archetypal-score CLM-archetypal-scores
+  
+  ask min-one-of intersections [ distance myself ] [
+    set sum-archetypal-scores sum-archetypal-scores + archetypal-score
+    set visit-count visit-count + 1
+  ]
+end
+
+to-report measure-archetypal-score
+  let nearby-landmarks landmarks in-radius view-distance-netlogo
+  let score 1
+  
+  if count nearby-landmarks >= 1 [
+    set score 3
+    let closest-distance min [ distance myself ] of nearby-landmarks
+    
+    if count nearby-landmarks > 1 [ set score score + 1 ]
+    if closest-distance < 10 * meter-conversion-factor [ set score score + 2]
+  ]
+  
+  report score
+end
+
+
+;; OUTPUT PROCEDURES ;;
+
+to update-heatmap
+  if target-score = "none" or not show-heatmap? [ 
+    ask intersections with [ size > 0 ] [ set size 0 ]
+    stop 
+  ]
+  
+  ask intersections with [ visit-count > 0 ] [
+    let sum-scores 0
+    
+    if target-score = "archetypal elements" [ set sum-scores sum-archetypal-scores ]
+    
+    let mean-score sum-scores / visit-count
+    set color scale-color green mean-score 1 6
+    if size = 0 [ set size 10 ]
+  ]
+end
+
+;; Plots
+
+to update-average-plot
+  set-current-plot "Average Resident Score"
+  set-current-plot-pen "average"
+  
+  let residents-to-include residents with [ not empty? get-score-history ]
+  if not any? residents-to-include [ stop ]
+  
+  plot mean [ last get-score-history ] of residents-to-include
+end
+
+to update-target-resident-plot
+  set-current-plot "Target Resident Score"
+  set-current-plot-pen "score"
+  
+  let target one-of residents with [ resident-id = target-resident-id ]
+  if target = nobody [ stop ]
+  
+  let history [ get-score-history ] of target
+  if empty? history [ stop ]
+  
+  let i length history - 1
+  plotxy i last history
+end
+
+to-report get-score-history
+  if target-score = "archetypal elements" [ report CLM-archetypal-scores ]
+  report []
+end

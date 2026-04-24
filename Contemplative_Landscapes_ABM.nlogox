@@ -2,7 +2,7 @@
 <model version="NetLogo 7.0.3" snapToGrid="true">
   <code><![CDATA[extensions [gis nw time]
 
-;; BREEDS AND GLOBALS ;;
+;; INIT ;;
 
 ;; Location breeds
 
@@ -219,7 +219,7 @@ to load-work-locations
 end
 
 to load-landmarks 
-foreach gis:feature-list-of landmark-dataset [ feature ->
+  foreach gis:feature-list-of landmark-dataset [ feature ->
     let location gis:location-of gis:centroid-of feature 
     
     if not empty? location [
@@ -228,7 +228,7 @@ foreach gis:feature-list-of landmark-dataset [ feature ->
       
       create-landmarks 1 [
         setxy x y
-        set color red
+        set color yellow
         set shape "star"
         set size 6
       ]
@@ -457,13 +457,7 @@ end
 to-report get-score-history
   if target-score = "archetypal elements" [ report CLM-archetypal-scores ]
   report []
-end
-  
-
-
-
-
-]]></code>
+end]]></code>
   <widgets>
     <view x="285" wrappingAllowedX="true" y="10" frameRate="30.0" minPycor="-300" height="610" showTickCounter="true" patchSize="1.0" fontSize="10" wrappingAllowedY="true" width="1013" tickCounterLabel="ticks" maxPycor="300" updateMode="0" maxPxcor="500" minPxcor="-500"></view>
     <button x="85" actionKey="G" y="20" height="40" disableUntilTicks="false" forever="true" kind="Observer" width="58">go</button>

@@ -1,0 +1,31 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    // Tasks are used for running NetLogo headlessly from inside VScode
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Update and open .nlogox model",
+            "type": "shell",
+            "command": "powershell",
+            "args": [
+                "-Command",
+                "python",
+                "${workspaceFolder}/.vscode/replace_nlogox_code.py",
+                "${workspaceFolder}/Contemplative_Landscapes_ABM.nlogox",
+                "${workspaceFolder}/abm_src.nls",
+                "${workspaceFolder}/Contemplative_Landscapes_ABM.nlogox;",
+                "Invoke-Item",
+                "-Path",
+                "${workspaceFolder}/Contemplative_Landscapes_ABM.nlogox;"
+            ],
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        }
+    ]
+}
