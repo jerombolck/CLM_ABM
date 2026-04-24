@@ -1,2 +1,4 @@
 data
 settings.json
+cache
+__pycache__
