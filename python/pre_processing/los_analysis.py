@@ -4,6 +4,7 @@ import geopandas as gpd
 from shapely.geometry import point
 import numpy as np
 
+
 def has_line_of_sight(dem, buildings, observer_loc, target_loc, observer_offset = 1):
     """Checks if an observer at observer_loc has a direct line of sight with target_loc. 
     Adapted from: https://spatial-dev.guru/2023/12/10/line-of-sight-analysis-in-digital-elevation-models-using-python/
