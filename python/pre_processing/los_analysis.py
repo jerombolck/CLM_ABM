@@ -5,6 +5,9 @@ import numpy as np
 from rasterio.transform import rowcol
 from scipy.ndimage import distance_transform_edt
 from joblib import Parallel, delayed
+from tqdm import tqdm
+
+import time
 
 
 def fill_nodata(array):
@@ -70,26 +73,30 @@ def has_line_of_sight(dem_array, dem_transform, buildings, observer_loc, target_
 
 def create_los_matrix(dem_array, dem_transform, buildings, points, max_dist = 500):
     point_count = len(points)
-    los_matrix = np.zeros((point_count, point_count), dtype=np.bool_)
+    los_matrix = np.identity(point_count, dtype=np.bool_)
 
-    # Iterate through all points
-    for i in range(point_count):
-        los_matrix[i, i] = True
+    print(f"Creating line of sight matrix for {point_count} points.")
 
-        # If this is is last point, return the matrix
-        if i == point_count - 1:
-            return los_matrix
+    pairs = [
+        (i, j)
+        for i in range(point_count)
+        for j in range(i+1, point_count)
+        if np.hypot(points[i][0] - points[j][0], points[i][1] - points[j][1]) < max_dist
+    ]
 
-        # Determine line of sight for all remaining pairs with this point
-        for j in range(i+1, point_count):
-            los = has_line_of_sight(dem_array, dem_transform, buildings, points[i], points[j])
-            los_matrix[i, j] = los
-            los_matrix[j, i] = los
+    los_results = Parallel(n_jobs=-1)(delayed(has_line_of_sight)(dem_array, dem_transform, buildings, points[i], points[j]) 
+                                      for i, j in tqdm(pairs, f"Computing line of sight for {len(pairs)} pairs"))
+
+    for pair_i in range(len(pairs)):
+        i, j = pairs[pair_i]
+        los_matrix[i, j] = los_matrix[j, i] = los_results[pair_i]
+
+    return los_matrix
 
 
 if __name__ == "__main__":
-    sample_size = 20
-    plot_observer_id = 17
+    sample_size = 1000
+    plot_observer_id = 650
 
     buildings = gpd.read_file("data/source/overvecht_homes.gpkg")
     network = gpd.read_file("data/source/overvecht_network.gpkg")
@@ -102,18 +109,17 @@ if __name__ == "__main__":
         dem_extent = [dem_src.bounds.left, dem_src.bounds.right, dem_src.bounds.bottom, dem_src.bounds.top]
         dem_transform = dem_src.transform
 
+    start = time.time()
     los_matrix = create_los_matrix(dem_filled, dem_transform, buildings, points)
+    elapsed = time.time() - start
 
+    sample_pair_count = ((sample_size*sample_size)-sample_size)/2
+    total_size = len(network.geometry)
+    total_pair_count = ((total_size*total_size)-total_size)/2
 
-    # Print LoS matrix
-    heading = "\t "
-    for i in range(len(los_matrix[0])):
-        heading += f"{i}     "
-    print(heading)
-
-    for i in range(len(los_matrix)):
-        row = los_matrix[i]
-        print(f"{i}\t{row}")
+    time_per_pair = elapsed / sample_pair_count
+    total_estimated = time_per_pair * total_pair_count
+    print(f"Estimated time: {total_estimated / 60:.1f} minutes")
 
 
     # Plot Results
