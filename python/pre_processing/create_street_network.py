@@ -1,12 +1,10 @@
 import matplotlib.pyplot as plt
 
-import os
 import numpy as np
 import osmnx as ox
 import pandas as pd
 import geopandas as gpd
 import neatnet as nn
-from shapely.ops import snap
 
 
 def download_network(place = "Utrecht, Netherlands"):
