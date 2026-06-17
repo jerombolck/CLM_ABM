@@ -7,7 +7,6 @@ import pandas as pd
 import geopandas as gpd
 import neatnet as nn
 from shapely.ops import snap
-from tqdm import tqdm
 
 
 def download_network(place = "Utrecht, Netherlands"):
