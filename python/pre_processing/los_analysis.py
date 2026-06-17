@@ -1,13 +1,13 @@
 import rasterio
 import geopandas as gpd
 from shapely.geometry import Point, LineString
+from shapely.ops import unary_union
 import numpy as np
 from rasterio.transform import rowcol
 from scipy.ndimage import distance_transform_edt
 from joblib import Parallel, delayed
 from tqdm import tqdm
 
-import time
 
 
 def fill_nodata(array):
@@ -25,7 +25,7 @@ def has_line_of_sight(dem_array, dem_transform, buildings, observer_loc, target_
 
     # If the direct line intersects with a building, target point is not visible
     line = LineString([observer_loc, target_loc])
-    if any(buildings.intersects(line)):
+    if buildings.intersects(line):
         return False
     
     # If the line does not intersect any buildings: prepare to iterate over the dem
@@ -74,6 +74,7 @@ def has_line_of_sight(dem_array, dem_transform, buildings, observer_loc, target_
 def create_los_matrix(dem_array, dem_transform, buildings, points, max_dist = 500):
     point_count = len(points)
     los_matrix = np.identity(point_count, dtype=np.bool_)
+    buildings_union = unary_union(buildings.geometry)
 
     print(f"Creating line of sight matrix for {point_count} points.")
 
@@ -84,7 +85,7 @@ def create_los_matrix(dem_array, dem_transform, buildings, points, max_dist = 50
         if np.hypot(points[i][0] - points[j][0], points[i][1] - points[j][1]) < max_dist
     ]
 
-    los_results = Parallel(n_jobs=-1)(delayed(has_line_of_sight)(dem_array, dem_transform, buildings, points[i], points[j]) 
+    los_results = Parallel(n_jobs=-1)(delayed(has_line_of_sight)(dem_array, dem_transform, buildings_union, points[i], points[j]) 
                                       for i, j in tqdm(pairs, f"Computing line of sight for {len(pairs)} pairs"))
 
     for pair_i in range(len(pairs)):
@@ -95,13 +96,18 @@ def create_los_matrix(dem_array, dem_transform, buildings, points, max_dist = 50
 
 
 if __name__ == "__main__":
-    sample_size = 1000
-    plot_observer_id = 650
+    from create_street_network import download_network, split_network
+    import matplotlib.pyplot as plt
+    import time
+
+    sample_size = 200
+    plot_observer_id = 17
 
     buildings = gpd.read_file("data/source/overvecht_homes.gpkg")
-    network = gpd.read_file("data/source/overvecht_network.gpkg")
+    nodes, edges = download_network()
+    nodes = split_network(nodes, edges)
 
-    points = [(geom.centroid.x, geom.centroid.y) for geom in network.head(sample_size).geometry]
+    points = [(geom.centroid.x, geom.centroid.y) for geom in nodes.head(sample_size).geometry]
         
     with rasterio.open("data/source/overvecht_dtm.tif") as dem_src:
         dem_data = dem_src.read(1, masked=True)
@@ -114,7 +120,7 @@ if __name__ == "__main__":
     elapsed = time.time() - start
 
     sample_pair_count = ((sample_size*sample_size)-sample_size)/2
-    total_size = len(network.geometry)
+    total_size = len(nodes.geometry)
     total_pair_count = ((total_size*total_size)-total_size)/2
 
     time_per_pair = elapsed / sample_pair_count
@@ -123,7 +129,6 @@ if __name__ == "__main__":
 
 
     # Plot Results
-    import matplotlib.pyplot as plt
 
     # Create a GeoDataFrame for the points using the buildings CRS
     point_geoms = [Point(x, y) for x, y in points]
