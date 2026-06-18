@@ -118,12 +118,22 @@ def compute_isovist(observer_loc, buildings, max_distance=500, angle_step=1):
     return Polygon(endpoints)
 
 
+def create_isovist_gdf(points, buildings, max_distance=500, angle_step=1):
+    buildings_union = unary_union(buildings.geometry)
+
+    isovist_results = Parallel(n_jobs=-1)(delayed(compute_isovist)(point, buildings_union, max_distance, angle_step)
+                                          for point in tqdm(points,"Computing isovists"))
+    
+    isovist_gdf = gpd.GeoDataFrame({"point": [Point(p) for p in points]}, geometry=isovist_results, crs = buildings.crs)
+    return isovist_gdf
+
+
 if __name__ == "__main__":
     from create_street_network import download_network, split_network
     import matplotlib.pyplot as plt
     import time
 
-    sample_size = 20
+    sample_size = 200
     plot_observer_id = 5
 
     buildings = gpd.read_file("data/source/overvecht_homes.gpkg")
@@ -131,7 +141,25 @@ if __name__ == "__main__":
     nodes = split_network(nodes, edges)
 
     points = [(geom.centroid.x, geom.centroid.y) for geom in nodes.sample(sample_size).geometry]
-        
+
+    start = time.time()
+    isovists = create_isovist_gdf(points, buildings)
+    elapsed = time.time() - start
+
+    total_size = len(nodes.geometry)
+    time_per_node = elapsed / sample_size
+    total_estimated = time_per_node * total_size
+
+    print(f"Estimated time for all nodes: {total_estimated / 60:.1f} minutes")
+
+    # Visualize
+    fig, ax = plt.subplots(figsize=(10, 10))
+    buildings.plot(ax=ax, color="gray")
+    gpd.GeoSeries(isovists.iloc[100]).plot(ax=ax, color="yellow", alpha=0.5)
+    gpd.GeoSeries(isovists.loc[100, "point"]).plot(ax=ax, color="red", markersize=10)
+    plt.show()
+
+    """ 
     with rasterio.open("data/source/overvecht_dtm.tif") as dem_src:
         dem_data = dem_src.read(1, masked=True)
         dem_filled = fill_nodata(dem_data)
@@ -187,3 +215,4 @@ if __name__ == "__main__":
     ax.set_aspect('equal')
     ax.legend()
     plt.show()
+    """
