@@ -1,5 +1,6 @@
 import rasterio
 import geopandas as gpd
+from shapely import Polygon
 from shapely.geometry import Point, LineString
 from shapely.ops import unary_union
 import numpy as np
@@ -7,7 +8,6 @@ from rasterio.transform import rowcol
 from scipy.ndimage import distance_transform_edt
 from joblib import Parallel, delayed
 from tqdm import tqdm
-
 
 
 def fill_nodata(array):
@@ -95,19 +95,42 @@ def create_los_matrix(dem_array, dem_transform, buildings, points, max_dist = 50
     return los_matrix
 
 
+def compute_isovist(observer_loc, buildings, max_distance=500, angle_step=1):
+    x, y = observer_loc
+    endpoints = []
+    
+    for angle in np.arange(0, 360, angle_step):
+        rad = np.radians(angle)
+        target = (
+            x + max_distance * np.cos(rad),
+            y + max_distance * np.sin(rad),
+        )
+        ray = LineString([observer_loc, target])
+        clipped = ray.difference(buildings)
+        
+        if clipped.is_empty:
+            endpoints.append(observer_loc)
+        elif clipped.geom_type == "MultiLineString":
+            endpoints.append(list(clipped.geoms)[0].coords[-1])
+        else:
+            endpoints.append(clipped.coords[-1])
+    
+    return Polygon(endpoints)
+
+
 if __name__ == "__main__":
     from create_street_network import download_network, split_network
     import matplotlib.pyplot as plt
     import time
 
-    sample_size = 200
-    plot_observer_id = 17
+    sample_size = 20
+    plot_observer_id = 5
 
     buildings = gpd.read_file("data/source/overvecht_homes.gpkg")
     nodes, edges = download_network()
     nodes = split_network(nodes, edges)
 
-    points = [(geom.centroid.x, geom.centroid.y) for geom in nodes.head(sample_size).geometry]
+    points = [(geom.centroid.x, geom.centroid.y) for geom in nodes.sample(sample_size).geometry]
         
     with rasterio.open("data/source/overvecht_dtm.tif") as dem_src:
         dem_data = dem_src.read(1, masked=True)
@@ -115,6 +138,12 @@ if __name__ == "__main__":
         dem_extent = [dem_src.bounds.left, dem_src.bounds.right, dem_src.bounds.bottom, dem_src.bounds.top]
         dem_transform = dem_src.transform
 
+    # Test isovist
+    observer = points[plot_observer_id]
+    isovist = compute_isovist(observer, unary_union(buildings.geometry))
+
+
+    # Timing
     start = time.time()
     los_matrix = create_los_matrix(dem_filled, dem_transform, buildings, points)
     elapsed = time.time() - start
@@ -142,6 +171,10 @@ if __name__ == "__main__":
 
     # Plot buildings
     buildings.plot(ax=ax, color='lightgrey', edgecolor='black')
+
+    # Plot isovist
+    gpd.GeoSeries([isovist], crs="EPSG:28992").plot(ax=ax, color="yellow", alpha=0.5)
+    gpd.GeoSeries([Point(observer)]).plot(ax=ax, color="red", markersize=10)
 
     # Plot visible and non-visible points
     pts_gdf[~pts_gdf['visible']].plot(ax=ax, color='red', marker='x', markersize=50, label='not visible')
