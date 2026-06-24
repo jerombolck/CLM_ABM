@@ -22,8 +22,7 @@ def cast_ray(observer, target, buildings_union, dem_array, dem_transform, z_offs
     
     Assumes buildings will always block the direct line of sight.
     """
-    building_endpoint = None
-    dem_endpoint = None
+    endpoint = target
 
     # Create ray and crop it to extent
     ray = LineString([observer, target])
@@ -32,69 +31,48 @@ def cast_ray(observer, target, buildings_union, dem_array, dem_transform, z_offs
     # Check if ray passes through buildings
     if not ray_diff_buildings.is_empty:
         if ray_diff_buildings.geom_type == "MultiLineString":
-            building_endpoint = Point(list(ray_diff_buildings.geoms)[0].coords[-1])
+            endpoint = list(ray_diff_buildings.geoms)[0].coords[-1]
         else:
-            building_endpoint = Point(ray_diff_buildings.coords[-1])
+            endpoint = ray_diff_buildings.coords[-1]
 
-    x1, y1 = observer.x, observer.y
-    x2, y2 = target.x, target.y
+    # Get the size and spatial resolution of the DEM
+    dem_rows, dem_cols = dem_array.shape
+    spatial_resolution = dem_transform[0]
 
-    row1, col1 = rowcol(dem_transform, x1, y1)
-    row2, col2 = rowcol(dem_transform, x2, y2)
+    # Get coordinates of observer and target
+    x1, y1 = observer
+    x2, y2 = target
 
-    # clamp indices to valid raster bounds
-    nrows, ncols = dem_array.shape
-    row1 = int(np.clip(row1, 0, nrows - 1))
-    row2 = int(np.clip(row2, 0, nrows - 1))
-    col1 = int(np.clip(col1, 0, ncols - 1))
-    col2 = int(np.clip(col2, 0, ncols - 1))
+    # Calculate the steps for sampling DEM elevation
+    steps = int(ray.length / spatial_resolution)
 
-    z1 = dem_array[row1, col1] + z_offset
-    z2 = dem_array[row2, col2] + z_offset
+    # Get the coordinates of all sample points along the ray
+    x_coords = np.linspace(x1, x2, steps)
+    y_coords = np.linspace(y1, y2, steps)
+    rows, cols = rowcol(dem_transform, x_coords, y_coords)
+    rows = np.clip(rows, 0, dem_rows - 1)
+    cols = np.clip(cols, 0, dem_cols - 1)
 
-    # Calculate the number of steps for iteration
-    steps = max(abs(row2 - row1), abs(col2 - col1))
+    # Get start and end elevation
+    z1 = dem_array[rows[0], cols[0]] + z_offset
+    z2 = dem_array[rows[-1], cols[-1]] + z_offset
+
+    # Get elevations of DEM along the ray and interpolate between start and end elevation
+    dem_elevations = dem_array[rows, cols]
+    ray_elevations = np.linspace(z1, z2, steps)
  
-    # Calculate the increments for x and y
-    x_inc = (x2 - x1) / steps
-    y_inc = (y2 - y1) / steps
+    # Find the indices where the DEM elevation exceeds the ray elevation
+    terrain_intersects = np.where(dem_elevations > ray_elevations)[0]
+    if terrain_intersects.size > 0:
+        intersect_x, intersect_y = (x_coords[terrain_intersects[0]], y_coords[terrain_intersects[0]])
 
-    # Start from the observer point
-    x, y = x1, y1
-
-    # Iterate over the dem between observer and target
-    for i in range(1, int(steps)):
-        x += x_inc
-        y += y_inc
-        row, col = rowcol(dem_transform, x, y)
-
-        # clamp indices each step to be safe
-        row = int(np.clip(row, 0, nrows - 1))
-        col = int(np.clip(col, 0, ncols - 1))
-
-        # Get the elevation of the direct line and the dem at this point
-        line_elevation = z1 + (z2 - z1) * (i / steps)
-        dem_elevation = dem_array[row, col]
-    
-        # If the DEM elevation at this point is higher than the direct line, target point is not visible
-        if not np.isnan(dem_elevation):
-            if dem_elevation > line_elevation:
-                dem_endpoint = Point(x, y)
-                break
+        dist_terrain_intersect = np.hypot(intersect_x - x1, intersect_y - y1)
+        dist_endpoint = np.hypot(endpoint[0] - x1, endpoint[1] - y1)
+        
+        if dist_endpoint > dist_terrain_intersect:
+            endpoint = (intersect_x, intersect_y)
    
-    if building_endpoint is None and dem_endpoint is None:
-        return target
-    
-    elif dem_endpoint is None:
-        return building_endpoint
-    elif building_endpoint is None:
-        return dem_endpoint
-    
-    observer_point = Point(x1, y1)
-    if observer_point.distance(building_endpoint) <= observer_point.distance(dem_endpoint):
-        return building_endpoint
-    else:
-        return dem_endpoint
+    return endpoint
 
 
 def compute_isovist(observer, buildings_union, dem_array, dem_transform, max_distance=500, angle_step=1):
@@ -102,9 +80,9 @@ def compute_isovist(observer, buildings_union, dem_array, dem_transform, max_dis
 
     for angle in np.arange(0, 360, angle_step):
         rad = np.radians(angle)
-        target = Point(
-            observer.x + max_distance * np.cos(rad),
-            observer.y + max_distance * np.sin(rad),
+        target = (
+            observer[0] + max_distance * np.cos(rad),
+            observer[1] + max_distance * np.sin(rad),
         )
 
         endpoints.append(cast_ray(observer, target, buildings_union, dem_array, dem_transform))
@@ -134,8 +112,7 @@ if __name__ == "__main__":
     nodes, edges = download_network()
     nodes = split_network(nodes, edges)
 
-    points = list(nodes.sample(sample_size).geometry)
-    print(points)
+    points = [(geom.x, geom.y) for geom in nodes.sample(sample_size).geometry]
 
     with rasterio.open("data/source/overvecht_dtm.tif") as dem_src:
         dem_data = dem_src.read(1, masked=True)
