@@ -17,34 +17,43 @@ def fill_nodata(array):
 
 
 def cast_ray(observer, target, buildings_union, dem_array, dem_transform, z_offset = 1):
-    """Cast a ray from an observer location to a target location. Returns the end point of the ray
-    Adapted from: https://spatial-dev.guru/2023/12/10/line-of-sight-analysis-in-digital-elevation-models-using-python/
+    """Cast a ray from an observer location towards a target location. Returns the end point of the ray.
     
     Assumes buildings will always block the direct line of sight.
     """
     endpoint = target
 
-    # Create ray and crop it to extent
+    # Get coordinates of observer and target
+    x1, y1 = observer
+    x2, y2 = target
+
+    # Create ray 
     ray = LineString([observer, target])
-    ray_diff_buildings = ray.difference(buildings_union)
+    ray_length = ray.length
     
     # Check if ray passes through buildings
+    ray_diff_buildings = ray.difference(buildings_union)
     if not ray_diff_buildings.is_empty:
+
+        # Set endpoint to the first intersection with buildings
         if ray_diff_buildings.geom_type == "MultiLineString":
             endpoint = list(ray_diff_buildings.geoms)[0].coords[-1]
         else:
             endpoint = ray_diff_buildings.coords[-1]
 
+        # Update the ray length and target coordinates to the found endpoint
+        ray_length = np.hypot(endpoint[0] - x1, endpoint[1] - y1)
+        x2, y2 = endpoint
+
     # Get the size and spatial resolution of the DEM
     dem_rows, dem_cols = dem_array.shape
     spatial_resolution = dem_transform[0]
 
-    # Get coordinates of observer and target
-    x1, y1 = observer
-    x2, y2 = target
-
     # Calculate the steps for sampling DEM elevation
-    steps = int(ray.length / spatial_resolution)
+    steps = int(ray_length / spatial_resolution)
+
+    if steps == 0:
+        return endpoint
 
     # Get the coordinates of all sample points along the ray
     x_coords = np.linspace(x1, x2, steps)
@@ -62,15 +71,9 @@ def cast_ray(observer, target, buildings_union, dem_array, dem_transform, z_offs
     ray_elevations = np.linspace(z1, z2, steps)
  
     # Find the indices where the DEM elevation exceeds the ray elevation
-    terrain_intersects = np.where(dem_elevations > ray_elevations)[0]
+    terrain_intersects = np.where(~np.isnan(dem_elevations) & (dem_elevations > ray_elevations))[0]
     if terrain_intersects.size > 0:
-        intersect_x, intersect_y = (x_coords[terrain_intersects[0]], y_coords[terrain_intersects[0]])
-
-        dist_terrain_intersect = np.hypot(intersect_x - x1, intersect_y - y1)
-        dist_endpoint = np.hypot(endpoint[0] - x1, endpoint[1] - y1)
-        
-        if dist_endpoint > dist_terrain_intersect:
-            endpoint = (intersect_x, intersect_y)
+        endpoint = (x_coords[terrain_intersects[0]], y_coords[terrain_intersects[0]])
    
     return endpoint
 
