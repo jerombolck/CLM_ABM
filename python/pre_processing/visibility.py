@@ -23,7 +23,6 @@ def cast_ray(observer, target, buildings_union, dem_array, dem_transform, z_offs
     """
     endpoint = target
 
-    # Get coordinates of observer and target
     x1, y1 = observer
     x2, y2 = target
 
@@ -112,10 +111,12 @@ if __name__ == "__main__":
     plot_observer_id = 10
 
     buildings = gpd.read_file("data/source/overvecht_homes.gpkg")
+    study_area = gpd.read_file("data/source/study_area.gpkg")
+
     nodes, edges = download_network()
     nodes = split_network(nodes, edges)
 
-    points = [(geom.x, geom.y) for geom in nodes.sample(sample_size).geometry]
+    points = [(geom.x, geom.y) for geom in nodes.geometry]
 
     with rasterio.open("data/source/overvecht_dtm.tif") as dem_src:
         dem_data = dem_src.read(1, masked=True)
@@ -123,15 +124,10 @@ if __name__ == "__main__":
         dem_extent = [dem_src.bounds.left, dem_src.bounds.right, dem_src.bounds.bottom, dem_src.bounds.top]
         dem_transform = dem_src.transform
 
-    start = time.time()
     isovists = create_isovist_gdf(points, buildings, dem_filled, dem_transform)
-    elapsed = time.time() - start
+    isovists_clipped = isovists.clip(study_area)
 
-    total_size = len(nodes.geometry)
-    time_per_node = elapsed / sample_size
-    total_estimated = time_per_node * total_size
-
-    print(f"Estimated time for all nodes: {total_estimated / 60:.1f} minutes")
+    isovists_clipped.to_file("data/overvecht_network_isovists.gpkg")
 
     # Plot
     fig, ax = plt.subplots(figsize=(10, 10))
@@ -140,7 +136,7 @@ if __name__ == "__main__":
     plt.colorbar(ax.images[-1], ax=ax, fraction=0.046, pad=0.04).set_label('Elevation (m)')
 
     buildings.plot(ax=ax, color="gray")
-    gpd.GeoSeries(isovists.iloc[plot_observer_id]).plot(ax=ax, color="yellow", alpha=0.5)
-    gpd.GeoSeries(isovists.loc[plot_observer_id, "observer"]).plot(ax=ax, color="red", markersize=10)
+    gpd.GeoSeries(isovists_clipped.iloc[plot_observer_id]).plot(ax=ax, color="yellow", alpha=0.5)
+    gpd.GeoSeries(isovists_clipped.loc[plot_observer_id, "observer"]).plot(ax=ax, color="red", markersize=10)
 
     plt.show()
