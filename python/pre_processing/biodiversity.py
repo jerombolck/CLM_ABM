@@ -1,5 +1,6 @@
 import geopandas as gpd
 from rasterstats import zonal_stats
+import numpy as np
 
 """"
 fid: 14783
@@ -34,10 +35,9 @@ def compute_biodiversity_score(isovist, trees, raster_file_paths):
     mean_shrub_perc = zonal_stats(isovist, raster_file_paths["shrub_vegetation"])[0]["mean"]
     mean_tree_perc = zonal_stats(isovist, raster_file_paths["tree_vegetation"])[0]["mean"]
     
-    print(f"Mean bee richness: {mean_bee_richness}")
+    """    print(f"Mean bee richness: {mean_bee_richness}")
     print(f"Visible trees: {n_visible_trees}")
-    print(f"Visible tree species: {n_visible_tree_species}")
-    print(f"")
+    print(f"Visible tree species: {n_visible_tree_species}")"""
 
     biodiversity_score = 1
 
@@ -47,27 +47,29 @@ def compute_biodiversity_score(isovist, trees, raster_file_paths):
     # High tree diversity increases score by 2
     # Medium tree diversity increases score by 1
     # Presence of any rare tree species increases score by 1
-    if mean_bee_richness > 90:
-        biodiversity_score += 2
-    elif mean_bee_richness > 60:
-        biodiversity_score += 1
+    if mean_bee_richness != None:
+        if mean_bee_richness > 90:
+            biodiversity_score += 2
+        elif mean_bee_richness > 70:
+            biodiversity_score += 1
 
-    if n_visible_tree_species > 20:
+    if n_visible_tree_species > 40:
         biodiversity_score += 2
-    elif n_visible_tree_species > 10:
+    elif n_visible_tree_species > 20:
         biodiversity_score += 1
 
     if n_visible_rare_trees > 0:
         biodiversity_score += 1
 
     ## 'Vegetation seems native and spontaneous'
-    # Biodivirsity score has to be at least a four so far
+    # Score has to be at least 4 so far
     # - Is at least 30% of the visible trees in a 'bosplantsoen'?
     # - Are any old trees visible?
     # - Are all three vegetation layers (grass, shrubs, trees) are present?
-    # Increase score by 1 if at least two are true
-    # Increase score by 2 if all three are true
-    # Score cannot exceed 4 if none are true
+    # Increase score by 2 if all three statements are true
+    # Increase score by 1 if any two statemets are true
+    # Do not increase score if only one statement is true
+    # Score cannot exceed 4 if none of the statements are true
     if biodiversity_score >= 4:
         high_bospltsn_factor = n_visible_bospltsn_trees / n_visible_trees > 0.3
         any_old_trees = n_visible_old_trees > 0
@@ -76,7 +78,7 @@ def compute_biodiversity_score(isovist, trees, raster_file_paths):
         if not high_bospltsn_factor and not any_old_trees and not layered_vegetation:
             biodiversity_score = 4
         else:
-            biodiversity_score += (high_bospltsn_factor + any_old_trees + layered_vegetation) - 1
+            biodiversity_score += high_bospltsn_factor + any_old_trees + layered_vegetation - 1
 
     # Score cannot exceed 6
     if biodiversity_score > 6:
@@ -86,7 +88,7 @@ def compute_biodiversity_score(isovist, trees, raster_file_paths):
 
 
 if __name__ == "__main__":
-    isovist = gpd.read_file("data/overvecht_network_isovists.gpkg").sample(1)
+    isovists = gpd.read_file("data/overvecht_network_isovists.gpkg")
     trees = gpd.read_file("data/source/overvecht_trees.gpkg")
     file_paths = {
         "bee_richness": "data/source/overvecht_bee_richness.tif",
@@ -95,4 +97,10 @@ if __name__ == "__main__":
         "tree_vegetation": "data/source/overvecht_trees_raster.tif",
     }
 
-    print(compute_biodiversity_score(isovist, trees, file_paths))
+    scores = [compute_biodiversity_score(geom, trees, file_paths) for geom in isovists.geometry]
+    print("Mean: ", sum(scores) / len(scores))
+    
+    import matplotlib.pyplot as plt
+
+    plt.bar(x=[1, 2, 3, 4, 5, 6], height=np.histogram(scores, bins=6, range=(1, 6))[0])
+    plt.show()
