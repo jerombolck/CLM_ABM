@@ -103,7 +103,7 @@ def create_isovist_gdf(points, buildings, dem_array, dem_transform):
 
 
 if __name__ == "__main__":
-    from create_street_network import download_network, split_network
+    from python.pre_processing.street_network import download_network, split_network
     import matplotlib.pyplot as plt
     import time
 
