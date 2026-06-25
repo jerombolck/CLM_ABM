@@ -26,14 +26,19 @@ def compute_biodiversity_score(isovist, trees, raster_file_paths):
     n_visible_old_trees = len(visible_trees[visible_trees["Oud"] == "ja"])
     n_visible_rare_trees = len(visible_trees[visible_trees["Zeldzaam"] == "ja"])
     n_visible_bospltsn_trees = len(visible_trees[visible_trees["Bospltsn"] == 1])
+    n_visible_tree_species = visible_trees["Wetenschappelijke_naam"].nunique()
     
-    visible_tree_species_count = visible_trees["Wetenschappelijke_naam"].nunique()
-    mean_bee_species_count = zonal_stats(isovist, raster_file_paths["bee_richness"], stats="mean")
 
-    mean_grass_perc = zonal_stats(isovist, raster_file_paths["grass_vegetation"], stats="mean")
-    mean_shrub_perc = zonal_stats(isovist, raster_file_paths["shrub_vegetation"], stats="mean")
-    mean_tree_perc = zonal_stats(isovist, raster_file_paths["tree_vegetation"], stats="mean")
+    mean_bee_richness = zonal_stats(isovist, raster_file_paths["bee_richness"])[0]["mean"]
+    mean_grass_perc = zonal_stats(isovist, raster_file_paths["grass_vegetation"])[0]["mean"]
+    mean_shrub_perc = zonal_stats(isovist, raster_file_paths["shrub_vegetation"])[0]["mean"]
+    mean_tree_perc = zonal_stats(isovist, raster_file_paths["tree_vegetation"])[0]["mean"]
     
+    print(f"Mean bee richness: {mean_bee_richness}")
+    print(f"Visible trees: {n_visible_trees}")
+    print(f"Visible tree species: {n_visible_tree_species}")
+    print(f"")
+
     biodiversity_score = 1
 
     ## 'High diversity of plant and animal species'
@@ -41,19 +46,19 @@ def compute_biodiversity_score(isovist, trees, raster_file_paths):
     # Medium bee diversity increases score by 1
     # High tree diversity increases score by 2
     # Medium tree diversity increases score by 1
-    # Presence of any rare tree species increase by 1
-    if mean_bee_species_count > 90:
-        biodiversity_score + 2
-    elif mean_bee_species_count > 60:
-        biodiversity_score + 1
+    # Presence of any rare tree species increases score by 1
+    if mean_bee_richness > 90:
+        biodiversity_score += 2
+    elif mean_bee_richness > 60:
+        biodiversity_score += 1
 
-    if visible_tree_species_count > 12:
-        biodiversity_score + 2
-    elif visible_tree_species_count > 6:
-        biodiversity_score + 1
+    if n_visible_tree_species > 20:
+        biodiversity_score += 2
+    elif n_visible_tree_species > 10:
+        biodiversity_score += 1
 
     if n_visible_rare_trees > 0:
-        biodiversity_score + 1
+        biodiversity_score += 1
 
     ## 'Vegetation seems native and spontaneous'
     # Biodivirsity score has to be at least a four so far
@@ -66,7 +71,7 @@ def compute_biodiversity_score(isovist, trees, raster_file_paths):
     if biodiversity_score >= 4:
         high_bospltsn_factor = n_visible_bospltsn_trees / n_visible_trees > 0.3
         any_old_trees = n_visible_old_trees > 0
-        layered_vegetation = mean_grass_perc > 0.1 and mean_shrub_perc > 0.1 and mean_tree_perc > 0.1
+        layered_vegetation = mean_grass_perc > 10 and mean_shrub_perc > 10 and mean_tree_perc > 10
 
         if not high_bospltsn_factor and not any_old_trees and not layered_vegetation:
             biodiversity_score = 4
@@ -78,3 +83,16 @@ def compute_biodiversity_score(isovist, trees, raster_file_paths):
         biodiversity_score = 6
 
     return biodiversity_score
+
+
+if __name__ == "__main__":
+    isovist = gpd.read_file("data/overvecht_network_isovists.gpkg").sample(1)
+    trees = gpd.read_file("data/source/overvecht_trees.gpkg")
+    file_paths = {
+        "bee_richness": "data/source/overvecht_bee_richness.tif",
+        "grass_vegetation": "data/source/overvecht_grass_raster.tif",
+        "shrub_vegetation": "data/source/overvecht_shrubs_raster.tif",
+        "tree_vegetation": "data/source/overvecht_trees_raster.tif",
+    }
+
+    print(compute_biodiversity_score(isovist, trees, file_paths))
