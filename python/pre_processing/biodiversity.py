@@ -63,6 +63,7 @@ def compute_biodiversity_score(isovist, trees, raster_file_paths):
 
     ## 'Vegetation seems native and spontaneous'
     # Score has to be at least 4 so far
+    # Considers the following:
     # - Is at least 30% of the visible trees in a 'bosplantsoen'?
     # - Are any old trees visible?
     # - Are all three vegetation layers (grass, shrubs, trees) are present?
