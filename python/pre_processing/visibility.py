@@ -1,4 +1,5 @@
 import rasterio
+import pandas as pd
 import geopandas as gpd
 from shapely import Polygon, box
 from shapely.geometry import Point, LineString
@@ -8,6 +9,7 @@ from rasterio.transform import rowcol
 from scipy.ndimage import distance_transform_edt
 from joblib import Parallel, delayed
 from tqdm import tqdm
+from layers_of_landscape import compute_layers_score
 
 
 def fill_nodata(array):
@@ -52,7 +54,7 @@ def cast_ray(observer, target, buildings_union, dem_array, dem_transform, z_offs
     steps = int(ray_length / spatial_resolution)
 
     if steps == 0:
-        return endpoint
+        return endpoint, ray_length
 
     # Get the coordinates of all sample points along the ray
     x_coords = np.linspace(x1, x2, steps)
@@ -73,12 +75,14 @@ def cast_ray(observer, target, buildings_union, dem_array, dem_transform, z_offs
     terrain_intersects = np.where(~np.isnan(dem_elevations) & (dem_elevations > ray_elevations))[0]
     if terrain_intersects.size > 0:
         endpoint = (x_coords[terrain_intersects[0]], y_coords[terrain_intersects[0]])
-   
-    return endpoint
+        ray_length = np.hypot(endpoint[0] - x1, endpoint[1] - y1)
+
+    return endpoint, ray_length
 
 
 def compute_isovist(observer, buildings_union, dem_array, dem_transform, max_distance=500, angle_step=1):
     endpoints = []
+    ray_lengths = []
 
     for angle in np.arange(0, 360, angle_step):
         rad = np.radians(angle)
@@ -87,9 +91,14 @@ def compute_isovist(observer, buildings_union, dem_array, dem_transform, max_dis
             observer[1] + max_distance * np.sin(rad),
         )
 
-        endpoints.append(cast_ray(observer, target, buildings_union, dem_array, dem_transform))
+        endpoint, ray_length = cast_ray(observer, target, buildings_union, dem_array, dem_transform)
+        endpoints.append(endpoint)
+        ray_lengths.append(ray_length)
     
-    return Polygon(endpoints)
+    isovist = Polygon(endpoints)
+    layers_score = compute_layers_score(ray_lengths)
+
+    return gpd.GeoDataFrame({"observer": [Point(observer)], "layers_score": [layers_score]}, geometry=[isovist])
 
 
 def create_isovist_gdf(points, buildings, dem_array, dem_transform):
@@ -97,15 +106,13 @@ def create_isovist_gdf(points, buildings, dem_array, dem_transform):
 
     isovist_results = Parallel(n_jobs=-1)(delayed(compute_isovist)(point, buildings_union, dem_array, dem_transform)
                                           for point in tqdm(points,"Computing isovists"))
-    
-    isovist_gdf = gpd.GeoDataFrame({"observer": [Point(p) for p in points]}, geometry=isovist_results, crs = buildings.crs)
-    return isovist_gdf
+
+    return pd.concat(isovist_results)
 
 
 if __name__ == "__main__":
     from street_network import download_network, split_network
     import matplotlib.pyplot as plt
-    import time
 
     sample_size = 50
     plot_observer_id = 10
@@ -116,7 +123,7 @@ if __name__ == "__main__":
     nodes, edges = download_network()
     nodes = split_network(nodes, edges)
 
-    points = [(geom.x, geom.y) for geom in nodes.geometry]
+    points = [(geom.x, geom.y) for geom in nodes.sample(sample_size).geometry]
 
     with rasterio.open("data/source/overvecht_dtm.tif") as dem_src:
         dem_data = dem_src.read(1, masked=True)
@@ -126,10 +133,15 @@ if __name__ == "__main__":
 
     isovists = create_isovist_gdf(points, buildings, dem_filled, dem_transform)
     isovists_clipped = isovists.clip(study_area)
+    #isovists_clipped.to_file("data/overvecht_network_isovists.gpkg")
 
-    isovists_clipped.to_file("data/overvecht_network_isovists.gpkg")
+    layers_scores = list(isovists.layers_score)
+    print("Mean layers of the landscape score: ", sum(layers_scores) / len(layers_scores))
 
     # Plot
+    plt.bar(x=[1, 2, 3, 4, 5, 6], height=np.histogram(layers_scores, bins=6, range=(1, 6))[0])
+    plt.show()
+    
     fig, ax = plt.subplots(figsize=(10, 10))
 
     ax.imshow(dem_filled, cmap='terrain', vmin=0, vmax=10, alpha=0.6, extent=dem_extent)
