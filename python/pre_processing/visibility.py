@@ -93,7 +93,7 @@ def compute_isovist(observer, buildings_union, dem_array, dtm_transform, max_dis
     isovist = Polygon(endpoints)
     layers_score = compute_layers_score(ray_lengths)
 
-    return gpd.GeoDataFrame({"observer": [Point(observer)], "layers_score": [layers_score]}, geometry=[isovist])
+    return gpd.GeoDataFrame({"isovist": [isovist], "layers_score": [layers_score]}, geometry=[Point(observer)])
 
 
 def create_isovist_gdf(points, buildings, dem_array, dtm_transform):
@@ -102,7 +102,10 @@ def create_isovist_gdf(points, buildings, dem_array, dtm_transform):
     isovist_results = Parallel(n_jobs=-1)(delayed(compute_isovist)(point, buildings_union, dem_array, dtm_transform)
                                           for point in tqdm(points,"Computing isovists"))
 
-    return pd.concat(isovist_results)
+    gdf = pd.concat(isovist_results)
+    gdf = gdf.reset_index()
+
+    return gdf
 
 
 if __name__ == "__main__":
@@ -122,11 +125,17 @@ if __name__ == "__main__":
 
     dtm, dtm_extent, dtm_transform = load_terrain("data/source/overvecht_dtm.tif")
 
-    isovists = create_isovist_gdf(points, buildings, dtm, dtm_transform)
-    isovists_clipped = isovists.clip(study_area)
-    #isovists_clipped.to_file("data/overvecht_network_isovists.gpkg")
+    iso_node_gdf = create_isovist_gdf(points, buildings, dtm, dtm_transform)
 
-    layers_scores = list(isovists.layers_score)
+    iso_gdf = gpd.GeoSeries(iso_node_gdf["isovist"], crs=study_area.crs)
+    iso_gdf = iso_gdf.clip(study_area, sort=True)
+
+    node_gdf = gpd.GeoDataFrame(iso_node_gdf["layers_score"], geometry=iso_node_gdf.geometry)
+
+    iso_gdf.to_file("data/overvecht_isovists.gpkg", layer="isovists")
+    node_gdf.to_file("data/overvecht_isovists.gpkg", layer="nodes")
+
+    layers_scores = list(iso_node_gdf.layers_score)
     print("Mean layers of the landscape score: ", sum(layers_scores) / len(layers_scores))
 
     # Plot
@@ -139,7 +148,7 @@ if __name__ == "__main__":
     plt.colorbar(ax.images[-1], ax=ax, fraction=0.046, pad=0.04).set_label('Elevation (m)')
 
     buildings.plot(ax=ax, color="gray")
-    gpd.GeoSeries(isovists_clipped.iloc[plot_observer_id]).plot(ax=ax, color="yellow", alpha=0.5)
-    gpd.GeoSeries(isovists_clipped.loc[plot_observer_id, "observer"]).plot(ax=ax, color="red", markersize=10)
+    gpd.GeoSeries(iso_gdf.iloc[plot_observer_id]).plot(ax=ax, color="yellow", alpha=0.5)
+    gpd.GeoSeries(node_gdf.iloc[plot_observer_id].geometry).plot(ax=ax, color="red", markersize=10)
 
     plt.show()
