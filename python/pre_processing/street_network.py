@@ -4,7 +4,6 @@ import numpy as np
 import osmnx as ox
 import pandas as pd
 import geopandas as gpd
-import neatnet as nn
 
 
 def download_network(place = "Utrecht, Netherlands"):
@@ -27,26 +26,6 @@ def download_network(place = "Utrecht, Netherlands"):
     return network_nodes, network_edges
 
 
-def clean_network(network):
-    # Use homes as mask
-    mask = gpd.read_file("data/source/overvecht_homes.gpkg").geometry
-
-    # Explode MultiLineStrings to LineStrings
-    network = network.explode(index_parts=False)
-
-    # Clean network
-    clean_network = nn.extend_lines(network, tolerance=5, barrier=mask)
-    clean_network = nn.close_gaps(clean_network, tolerance=5)
-
-    # Simplify network
-    '''simplified_network = nn.neatify(clean_network, 
-                                    exclusion_mask=mask, 
-                                    max_segment_length=10,
-                                    min_dangle_length=10)'''
-
-    return clean_network
-
-
 def split_edge(edge, interval):
     """Takes an edge and splits into segments of interval length. Returns list of poins between segments.
     Adapted from: https://stackoverflow.com/questions/62990029/how-to-get-equally-spaced-points-on-a-line-in-shapely/62994304#62994304
@@ -66,6 +45,7 @@ def split_network(network_nodes, network_edges, interval=50, threshold=100):
     
     new_nodes = pd.concat([gpd.GeoSeries(extra_points, crs=network_nodes.crs), network_nodes.geometry])
     return new_nodes
+
 
 if __name__ == "__main__":
     nodes, edges = download_network()
