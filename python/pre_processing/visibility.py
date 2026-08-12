@@ -10,15 +10,10 @@ from scipy.ndimage import distance_transform_edt
 from joblib import Parallel, delayed
 from tqdm import tqdm
 from layers_of_landscape import compute_layers_score
+from terrain import load_terrain
 
 
-def fill_nodata(array):
-    mask = array.mask
-    indices = distance_transform_edt(mask, return_distances=False, return_indices=True)
-    return array.data[tuple(indices)]
-
-
-def cast_ray(observer, target, buildings_union, dem_array, dem_transform, z_offset = 1):
+def cast_ray(observer, target, buildings_union, dem_array, dtm_transform, z_offset = 1):
     """Cast a ray from an observer location towards a target location. Returns the end point of the ray.
     
     Assumes buildings will always block the direct line of sight.
@@ -48,7 +43,7 @@ def cast_ray(observer, target, buildings_union, dem_array, dem_transform, z_offs
 
     # Get the size and spatial resolution of the DEM
     dem_rows, dem_cols = dem_array.shape
-    spatial_resolution = dem_transform[0]
+    spatial_resolution = dtm_transform[0]
 
     # Calculate the steps for sampling DEM elevation
     steps = int(ray_length / spatial_resolution)
@@ -59,7 +54,7 @@ def cast_ray(observer, target, buildings_union, dem_array, dem_transform, z_offs
     # Get the coordinates of all sample points along the ray
     x_coords = np.linspace(x1, x2, steps)
     y_coords = np.linspace(y1, y2, steps)
-    rows, cols = rowcol(dem_transform, x_coords, y_coords)
+    rows, cols = rowcol(dtm_transform, x_coords, y_coords)
     rows = np.clip(rows, 0, dem_rows - 1)
     cols = np.clip(cols, 0, dem_cols - 1)
 
@@ -80,7 +75,7 @@ def cast_ray(observer, target, buildings_union, dem_array, dem_transform, z_offs
     return endpoint, ray_length
 
 
-def compute_isovist(observer, buildings_union, dem_array, dem_transform, max_distance=500, angle_step=1):
+def compute_isovist(observer, buildings_union, dem_array, dtm_transform, max_distance=500, angle_step=1):
     endpoints = []
     ray_lengths = []
 
@@ -91,7 +86,7 @@ def compute_isovist(observer, buildings_union, dem_array, dem_transform, max_dis
             observer[1] + max_distance * np.sin(rad),
         )
 
-        endpoint, ray_length = cast_ray(observer, target, buildings_union, dem_array, dem_transform)
+        endpoint, ray_length = cast_ray(observer, target, buildings_union, dem_array, dtm_transform)
         endpoints.append(endpoint)
         ray_lengths.append(ray_length)
     
@@ -101,10 +96,10 @@ def compute_isovist(observer, buildings_union, dem_array, dem_transform, max_dis
     return gpd.GeoDataFrame({"observer": [Point(observer)], "layers_score": [layers_score]}, geometry=[isovist])
 
 
-def create_isovist_gdf(points, buildings, dem_array, dem_transform):
+def create_isovist_gdf(points, buildings, dem_array, dtm_transform):
     buildings_union = unary_union(buildings.geometry)
 
-    isovist_results = Parallel(n_jobs=-1)(delayed(compute_isovist)(point, buildings_union, dem_array, dem_transform)
+    isovist_results = Parallel(n_jobs=-1)(delayed(compute_isovist)(point, buildings_union, dem_array, dtm_transform)
                                           for point in tqdm(points,"Computing isovists"))
 
     return pd.concat(isovist_results)
@@ -125,13 +120,9 @@ if __name__ == "__main__":
 
     points = [(geom.x, geom.y) for geom in nodes.sample(sample_size).geometry]
 
-    with rasterio.open("data/source/overvecht_dtm.tif") as dem_src:
-        dem_data = dem_src.read(1, masked=True)
-        dem_filled = fill_nodata(dem_data)
-        dem_extent = [dem_src.bounds.left, dem_src.bounds.right, dem_src.bounds.bottom, dem_src.bounds.top]
-        dem_transform = dem_src.transform
+    dtm, dtm_extent, dtm_transform = load_terrain("data/source/overvecht_dtm.tif")
 
-    isovists = create_isovist_gdf(points, buildings, dem_filled, dem_transform)
+    isovists = create_isovist_gdf(points, buildings, dtm, dtm_transform)
     isovists_clipped = isovists.clip(study_area)
     #isovists_clipped.to_file("data/overvecht_network_isovists.gpkg")
 
@@ -144,7 +135,7 @@ if __name__ == "__main__":
     
     fig, ax = plt.subplots(figsize=(10, 10))
 
-    ax.imshow(dem_filled, cmap='terrain', vmin=0, vmax=10, alpha=0.6, extent=dem_extent)
+    ax.imshow(dtm, cmap='terrain', vmin=0, vmax=10, alpha=0.6, extent=dtm_extent)
     plt.colorbar(ax.images[-1], ax=ax, fraction=0.046, pad=0.04).set_label('Elevation (m)')
 
     buildings.plot(ax=ax, color="gray")
