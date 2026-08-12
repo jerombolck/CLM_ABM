@@ -14,10 +14,9 @@ def compute_peace_score(location, noise_file_path):
 
 
 if __name__ == "__main__":
-    isovists = gpd.read_file("data/overvecht_network_isovists.gpkg")
-    nodes = [from_wkt(p_string) for p_string in isovists["observer"]]
+    nodes = gpd.read_file("data/overvecht_isovists.gpkg", layer="nodes")
 
-    scores = [compute_peace_score((node.x, node.y), "data/source/overvecht_noise_raster.tif") for node in nodes]
+    scores = [compute_peace_score((node.x, node.y), "data/source/overvecht_noise_raster.tif") for node in nodes.geometry]
     print("Mean: ", sum(scores) / len(scores))
     
     import matplotlib.pyplot as plt

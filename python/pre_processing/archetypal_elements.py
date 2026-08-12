@@ -27,11 +27,11 @@ def compute_archetypal_score(location, isovist, monuments, trees, water_bodies, 
     # Present, not near = 3
     # None = 1
 
-    if n_near_landmarks == 2:
+    if n_near_landmarks >= 2:
         archetypal_score = 6
     elif n_near_landmarks == 1:
         archetypal_score = 5
-    elif n_visible_landmarks == 2:
+    elif n_visible_landmarks >= 2:
         archetypal_score = 4
     elif n_visible_landmarks == 1:
         archetypal_score = 3
@@ -42,13 +42,13 @@ def compute_archetypal_score(location, isovist, monuments, trees, water_bodies, 
 
 
 if __name__ == "__main__":
-    isovists = gpd.read_file("data/overvecht_network_isovists.gpkg")
+    isovists = gpd.read_file("data/overvecht_isovists.gpkg", layer="isovists").geometry
     monuments = gpd.read_file("data/source/overvecht_monuments.gpkg")
     trees = gpd.read_file("data/source/overvecht_trees.gpkg")
     water = gpd.read_file("data/source/overvecht_water.gpkg")
-    nodes = [from_wkt(p_string) for p_string in isovists["observer"]]
+    nodes = gpd.read_file("data/overvecht_isovists.gpkg", layer="nodes").geometry
 
-    scores = [compute_archetypal_score((nodes[i].x, nodes[i].y), isovists.iloc[i].geometry, monuments, trees, water) for i in range(len(isovists))]
+    scores = [compute_archetypal_score((nodes[i].x, nodes[i].y), isovists[i], monuments, trees, water) for i in range(len(isovists))]
     print("Mean: ", sum(scores) / len(scores))
     
     import matplotlib.pyplot as plt

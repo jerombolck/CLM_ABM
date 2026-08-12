@@ -89,7 +89,7 @@ def compute_biodiversity_score(isovist, trees, raster_file_paths):
 
 
 if __name__ == "__main__":
-    isovists = gpd.read_file("data/overvecht_network_isovists.gpkg")
+    isovists = gpd.read_file("data/overvecht_isovists.gpkg", layer="isovists")
     trees = gpd.read_file("data/source/overvecht_trees.gpkg")
     file_paths = {
         "bee_richness": "data/source/overvecht_bee_richness.tif",
@@ -98,7 +98,7 @@ if __name__ == "__main__":
         "tree_vegetation": "data/source/overvecht_trees_raster.tif",
     }
 
-    scores = [compute_biodiversity_score(geom, trees, file_paths) for geom in isovists.geometry]
+    scores = [compute_biodiversity_score(iso, trees, file_paths) for iso in isovists.geometry]
     print("Mean: ", sum(scores) / len(scores))
     
     import matplotlib.pyplot as plt
