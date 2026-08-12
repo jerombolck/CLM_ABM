@@ -33,8 +33,8 @@ def compute_layers_score(ray_lengths, foreground_dist = 200 , background_dist = 
     mean_normalized_std = np.clip(1 - np.mean(normalized_stds), 0, 1)
 
     if has_foreground and has_background and has_middleground:
-        layers_score = 1 + mean_normalized_std * 5
+        layers_score = mean_normalized_std * 7
     else:
-        layers_score = 1 + mean_normalized_std * 3
+        layers_score = mean_normalized_std * 4
 
     return layers_score
