@@ -96,14 +96,15 @@ def compute_isovist(observer, buildings_union, dem_array, dtm_transform, max_dis
     return gpd.GeoDataFrame({"isovist": [isovist], "layers_score": [layers_score]}, geometry=[Point(observer)])
 
 
-def create_isovist_gdf(points, buildings, dem_array, dtm_transform):
+def visibility_analysis(points, buildings, dem_array, dtm_transform):
     buildings_union = unary_union(buildings.geometry)
 
     isovist_results = Parallel(n_jobs=-1)(delayed(compute_isovist)(point, buildings_union, dem_array, dtm_transform)
                                           for point in tqdm(points,"Computing isovists"))
 
     gdf = pd.concat(isovist_results)
-    gdf = gdf.reset_index()
+    gdf = gdf.reset_index(drop=True)
+    gdf["node_id"] = gdf.index
 
     return gdf
 
@@ -125,7 +126,7 @@ if __name__ == "__main__":
 
     dtm, dtm_extent, dtm_transform = load_terrain("data/source/overvecht_dtm.tif")
 
-    iso_node_gdf = create_isovist_gdf(points, buildings, dtm, dtm_transform)
+    iso_node_gdf = visibility_analysis(points, buildings, dtm, dtm_transform)
 
     iso_gdf = gpd.GeoSeries(iso_node_gdf["isovist"], crs=study_area.crs)
     iso_gdf = iso_gdf.clip(study_area, sort=True)
