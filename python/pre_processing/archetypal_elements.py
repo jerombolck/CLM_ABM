@@ -3,10 +3,20 @@ import geopandas as gpd
 from shapely import Point, buffer, from_wkt
 import numpy as np
 
-def compute_archetypal_score(location, isovist, monuments, trees, water_bodies, near_threshold=100):
-    visible_monuments = monuments.clip(isovist)
+
+def compute_archetypal_score(location, isovist, monuments, trees, water_bodies, buildings, near_threshold=100):
+    monuments_sjoin = gpd.sjoin_nearest(
+        monuments,
+        buildings,
+        how="inner",
+        max_distance=5
+    )
+
+    monument_footprints = buildings.loc[monuments_sjoin.index_right]
+    
+    visible_monuments = monument_footprints[monument_footprints.boundary.intersects(isovist)]
     visible_old_trees = trees[trees["Oud"] == "ja"].clip(isovist)
-    visible_water = water_bodies.clip(isovist)
+    visible_water = water_bodies[water_bodies.boundary.intersects(isovist)]
 
     visible_landmarks = pd.concat([
         visible_monuments,
@@ -42,13 +52,14 @@ def compute_archetypal_score(location, isovist, monuments, trees, water_bodies, 
 
 
 if __name__ == "__main__":
+    nodes = gpd.read_file("data/overvecht_isovists.gpkg", layer="nodes").geometry
     isovists = gpd.read_file("data/overvecht_isovists.gpkg", layer="isovists").geometry
     monuments = gpd.read_file("data/source/overvecht_monuments.gpkg")
     trees = gpd.read_file("data/source/overvecht_trees.gpkg")
     water = gpd.read_file("data/source/overvecht_water.gpkg")
-    nodes = gpd.read_file("data/overvecht_isovists.gpkg", layer="nodes").geometry
+    buildings = gpd.read_file("data/source/overvecht_buildings.gpkg")
 
-    scores = [compute_archetypal_score((nodes[i].x, nodes[i].y), isovists[i], monuments, trees, water) for i in range(len(isovists))]
+    scores = [compute_archetypal_score((nodes[i].x, nodes[i].y), isovists[i], monuments, trees, water, buildings) for i in range(len(isovists))]
     print("Mean: ", sum(scores) / len(scores))
     
     import matplotlib.pyplot as plt
