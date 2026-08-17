@@ -74,6 +74,7 @@ score_gdf["peace_score"] = Parallel(n_jobs=-1)(
         for node in tqdm(score_gdf.iterfeatures(), "Computing peace and silence scores", total_nodes)
     )
 
+score_gdf["CLM_score"] = score_gdf[["layers_score", "biodiversity_score", "archetypal_score", "peace_score"]].mean(axis=1)
 score_gdf = score_gdf.drop("geometry_isovist", axis=1)
 
 if not os.path.exists("data/pre_processing"):
@@ -90,6 +91,7 @@ scores_model_input = score_gdf.to_crs("EPSG:32632").rename(columns={
     "biodiversity_score": "biodiv_scr",
     "archetypal_score": "arch_scr",
     "peace_score": "peace_scr",
+    "CLM_score": "CLM_scr",
 })
 scores_model_input.to_file("data/model_input/score_points.shp")
 
