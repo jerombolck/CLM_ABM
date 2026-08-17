@@ -10,8 +10,6 @@ breed [home-locations home-location]
 breed [work-locations work-location]
 breed [shop-locations shop-location]
 
-breed [landmarks landmark]
-
 ;; Network breeds
 
 breed [intersections intersection]   ; nodes = steet intersections
@@ -57,7 +55,6 @@ globals [
   work-dataset
   home-dataset
   shop-dataset
-  landmark-dataset
   
   intersection-snap-distance
   meter-conversion-factor
@@ -81,6 +78,7 @@ to setup
   ; Load other GIS data
   set home-dataset gis:load-dataset "data/model_input/homes.shp"
   set work-dataset gis:load-dataset "data/model_input/workplaces.shp"
+  set shop-dataset gis:load-dataset "data/model_input/shops.shp"
   
   ; Calculate the ratio betwen meters and netlogo units
   ; Calculate both width and height to account for padding
@@ -101,6 +99,7 @@ to setup
   build-network
   load-home-locations
   load-work-locations
+  load-shop-locations
   
   ; Initialize agents, time and ticks
   reset
@@ -216,19 +215,19 @@ to load-work-locations
   ]
 end
 
-to load-landmarks 
-  foreach gis:feature-list-of landmark-dataset [ feature ->
+to load-shop-locations
+  foreach gis:feature-list-of shop-dataset [ feature ->
     let location gis:location-of gis:centroid-of feature 
     
     if not empty? location [
       let x item 0 location
       let y item 1 location
       
-      create-landmarks 1 [
+      create-work-locations 1 [
         setxy x y
-        set color yellow
-        set shape "star"
-        set size 6
+        set color blue
+        set shape "square"
+        set size 4
       ]
     ]
   ]
@@ -304,7 +303,7 @@ to follow-path [ remaining-speed ]
     ; Node within reach, so move to it and measure exposure
     set remaining-speed remaining-speed - distance next-node
     move-to next-node
-    measure-exposure
+    ;measure-exposure
 
     ifelse next-node = destination [
       ; Destination reached
@@ -377,34 +376,19 @@ end
 ; end
 
 
-;; CLM PROCEDURES ;;
+;; CLM scores
 
-to measure-exposure
-  set view-distance-netlogo view-distance * meter-conversion-factor
-  
-  let archetypal-score measure-archetypal-score
-  set CLM-archetypal-scores lput archetypal-score CLM-archetypal-scores
-  
-  ask min-one-of intersections [ distance myself ] [
-    set sum-archetypal-scores sum-archetypal-scores + archetypal-score
-    set visit-count visit-count + 1
-  ]
-end
-
-to-report measure-archetypal-score
-  let nearby-landmarks landmarks in-radius view-distance-netlogo
-  let score 1
-  
-  if count nearby-landmarks >= 1 [
-    set score 3
-    let closest-distance min [ distance myself ] of nearby-landmarks
-    
-    if count nearby-landmarks > 1 [ set score score + 1 ]
-    if closest-distance < 10 * meter-conversion-factor [ set score score + 2]
-  ]
-  
-  report score
-end
+;to measure-exposure
+;  set view-distance-netlogo view-distance * meter-conversion-factor
+;  
+;  let archetypal-score measure-archetypal-score
+;  set CLM-archetypal-scores lput archetypal-score CLM-archetypal-scores
+;  
+;  ask min-one-of intersections [ distance myself ] [
+;    set sum-archetypal-scores sum-archetypal-scores + archetypal-score
+;    set visit-count visit-count + 1
+;  ]
+;end
 
 
 ;; OUTPUT PROCEDURES ;;
