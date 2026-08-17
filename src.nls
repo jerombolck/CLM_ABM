@@ -384,13 +384,13 @@ to schedule-next-goal
   ; Default to going home for the night
   let next-goal "home"
   let next-destination home-node
-  let next-goal-end time:plus (time:plus today 1 "day") 8 "hours"
+  let next-goal-end random-normal-time (time:plus (time:plus today 1 "day") 8 "hours") 30
 
   (ifelse
     current-goal = "home" [
       set next-goal "work"
       set next-destination work-node
-      set next-goal-end time:plus today 17 "hours"
+      set next-goal-end random-normal-time (time:plus today 17 "hours") 30
     ]
     current-goal = "work" [
       let p random 100
@@ -398,8 +398,11 @@ to schedule-next-goal
       if p <= 40 [
         set next-goal "shop" 
         set next-destination one-of shop-locations
-        set next-goal-end time:plus time-of-day 30 "minutes"
+        set next-goal-end random-normal-time (time:plus time-of-day 30 "minutes") 5
       ] 
+    ]
+    current-goal = "shop" [
+      ; Go home
     ]
   )
 
@@ -409,6 +412,15 @@ to schedule-next-goal
   time:schedule-event self [ [] -> 
     schedule-next-goal
   ] next-goal-end
+end
+
+to-report random-normal-time [ mean-time sd-minutes ]
+  let offset round random-normal 0 sd-minutes
+  let result time:plus mean-time offset "minutes"
+
+  ifelse time:is-after? result time-of-day
+    [ report result ]
+    [ report time:plus time-of-day 1 "minutes" ]
 end
 
 ;; CLM scores
