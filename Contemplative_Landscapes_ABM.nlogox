@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <model version="NetLogo 7.0.4" snapToGrid="true">
-  <code><![CDATA[extensions [gis nw time]
+  <code><![CDATA[extensions [gis nw time csv]
 
 ;; INIT ;;
 
@@ -31,12 +31,15 @@ sample-points-own [
 ]
 
 
-;; Resident breed
+;; Resident breeds
 
 breed [residents resident]
+breed [resident-groups resident-group]
 
 residents-own [
   resident-id
+  group
+
   home-node
   work-node
   
@@ -51,6 +54,18 @@ residents-own [
   archetypal-scores
   peace-scores
   CLM-scores
+]
+
+resident-groups-own [
+  group-name
+  group-proportion
+  work-start-hour
+  work-start-spread
+  work-end-hour
+  work-end-spread
+  shop-probability
+  shop-duration
+  shop-end-spread
 ]
 
 ;; Globals
@@ -126,6 +141,8 @@ to reset
   print "Resetting simulation..."
   
   reset-ticks
+  ask resident-groups [ die ]
+  ask residents [ die ]
   set day 0
   set time-of-day time:anchor-to-ticks start-daytime 1.0 "minute"
   time:anchor-schedule start-daytime 1.0 "minute"
@@ -134,9 +151,10 @@ to reset
   random-seed seed
   print (word "\tRandom seed for this simulation: " seed) 
   
+  print "Loading resident groups..."
+  load-resident-groups
+
   print (word "Adding " n-starting-residents " residents...")
-  
-  ask residents [ die ]
   add-residents n-starting-residents
 end
 
@@ -273,32 +291,60 @@ end
 
 ;; Residents
 
+to load-resident-groups 
+  let data csv:from-file "data/model_input/resident_groups.csv"
+  let rows but-first data
+  
+  foreach rows [ row ->
+    create-resident-groups 1 [
+      set group-name item 0 row
+      set group-proportion item 1 row
+      set work-start-hour item 2 row
+      set work-start-spread item 3 row
+      set work-end-hour item 4 row
+      set work-end-spread item 5 row
+      set shop-probability item 6 row
+      set shop-duration item 7 row
+      set shop-end-spread item 8 row
+      set hidden? true
+    ]
+  ]
+end
+
 to add-residents [n]
   let next-id ifelse-value any? residents
     [ max [resident-id] of residents + 1 ] [ 0 ]
   
-  create-residents n [
-    set resident-id next-id
-    set next-id next-id + 1
-    
-    set home-node min-one-of intersections [ distance one-of home-locations ]
-    set work-node min-one-of intersections [ distance one-of work-locations ]
-    
-    move-to home-node
-    set moving? false
-    
-    set current-goal "home"
-    schedule-next-goal
+  let sorted-groups sort-on [group-name] resident-groups
 
-    set biodiversity-scores (list)
-    set layers-scores (list)
-    set archetypal-scores (list)
-    set peace-scores (list)
-    set CLM-scores (list)
-    
-    set color cyan
-    set shape "person"
-    set size 20
+  foreach sorted-groups [ g ->
+    let group_n round (n * [group-proportion] of g)
+
+    create-residents group_n [
+      set resident-id next-id
+      set next-id next-id + 1
+
+      set group g
+      
+      set home-node min-one-of intersections [ distance one-of home-locations ]
+      set work-node min-one-of intersections [ distance one-of work-locations ]
+      
+      move-to home-node
+      set moving? false
+      
+      set current-goal "home"
+      schedule-next-goal
+
+      set biodiversity-scores (list)
+      set layers-scores (list)
+      set archetypal-scores (list)
+      set peace-scores (list)
+      set CLM-scores (list)
+      
+      set color cyan
+      set shape "person"
+      set size 20
+    ]
   ]
 end
 
@@ -386,25 +432,30 @@ to schedule-next-goal
   ; Default to going home for the night
   let next-goal "home"
   let next-destination home-node
-  let next-goal-end random-normal-time (time:plus (time:plus today 1 "day") 8 "hours") 30
+  let next-goal-end random-normal-time 
+    (time:plus (time:plus today 1 "day") ([work-start-hour] of group) "hours")
+    ([work-start-spread] of group)
 
   (ifelse
     current-goal = "home" [
       set next-goal "work"
       set next-destination work-node
-      set next-goal-end random-normal-time (time:plus today 17 "hours") 30
+      set next-goal-end random-normal-time
+        (time:plus today ([work-end-hour] of group) "hours")
+        ([work-end-spread] of group)
     ]
     current-goal = "work" [
       let p random 100
-
-      if p <= 40 [
-        set next-goal "shop" 
+      if p <= [shop-probability] of group [
+        set next-goal "shop"
         set next-destination one-of shop-locations
-        set next-goal-end random-normal-time (time:plus time-of-day 30 "minutes") 5
-      ] 
+        set next-goal-end random-normal-time
+          (time:plus time-of-day ([shop-duration] of group) "minutes")
+          ([shop-end-spread] of group)
+      ]
     ]
     current-goal = "shop" [
-      ; Go home
+      ; Go home (default behaviour)
     ]
   )
 
