@@ -18,7 +18,11 @@
                 "focus": false,
                 "panel": "shared"
             },
-            "problemMatcher": []
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
         }
     ]
 }
