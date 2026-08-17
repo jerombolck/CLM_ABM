@@ -74,14 +74,13 @@ to setup
   print "Loading GIS data..."
   
   ; Load streets
-  set street-dataset gis:load-dataset "data/Overvecht_Street_Network.shp"
+  set street-dataset gis:load-dataset "data/model_input/street_network.shp"
   let gis-envelope gis:envelope-of street-dataset
   gis:set-world-envelope (gis-envelope)
   
   ; Load other GIS data
-  set home-dataset gis:load-dataset "data/Overvecht_Homes.shp"
-  set work-dataset gis:load-dataset "data/Overvecht_Workplaces.shp"
-  set landmark-dataset gis:load-dataset "data/Overvecht_Landmarks.shp"
+  set home-dataset gis:load-dataset "data/model_input/homes.shp"
+  set work-dataset gis:load-dataset "data/model_input/workplaces.shp"
   
   ; Calculate the ratio betwen meters and netlogo units
   ; Calculate both width and height to account for padding
@@ -102,7 +101,6 @@ to setup
   build-network
   load-home-locations
   load-work-locations
-  load-landmarks
   
   ; Initialize agents, time and ticks
   reset
