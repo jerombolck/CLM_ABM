@@ -13,6 +13,8 @@ breed [shop-locations shop-location]
 breed [intersections intersection]   ; nodes = steet intersections
 undirected-link-breed [streets street] ; edges = street segments
 
+breed [sample-points sample-point]
+
 streets-own [
   street-name
   length-meters
@@ -22,6 +24,15 @@ intersections-own [
   sum-archetypal-scores
   visit-count
 ]
+
+sample-points-own [
+  biodiversity-score
+  layers-score
+  archetypal-score
+  peace-score
+  CLM-score
+]
+
 
 ;; Resident breed
 
@@ -38,8 +49,11 @@ residents-own [
   next-node
   moving?
   
-  CLM-archetypal-scores
-  CLM-total-scores
+  biodiversity-scores
+  layers-scores
+  archetypal-scores
+  peace-scores
+  CLM-scores
 ]
 
 ;; Globals
@@ -49,6 +63,7 @@ globals [
   time-of-day
   day
   
+  sample-point-dataset
   street-dataset
   work-dataset
   home-dataset
@@ -72,6 +87,9 @@ to setup
   set street-dataset gis:load-dataset "data/model_input/street_network.shp"
   let gis-envelope gis:envelope-of street-dataset
   gis:set-world-envelope (gis-envelope)
+
+  ; Load sample points
+  set sample-point-dataset gis:load-dataset "data/model_input/scores.shp"
   
   ; Load other GIS data
   set home-dataset gis:load-dataset "data/model_input/homes.shp"
@@ -95,6 +113,7 @@ to setup
   ; Build the network and place locations
   set intersection-snap-distance 1 * meter-conversion-factor
   build-network
+  load-sample-points
   load-home-locations
   load-work-locations
   load-shop-locations
@@ -173,6 +192,29 @@ to-report find-or-create-node [x y]
     set new-node self
   ]
   report new-node
+end
+
+;; Sample points
+
+to load-sample-points
+  foreach gis:feature-list-of sample-point-dataset [ feature ->
+    let location gis:location-of gis:centroid-of feature
+
+    if not empty? location [
+      let x item 0 location
+      let y item 1 location
+      
+      create-sample-points 1 [
+        setxy x y
+        set biodiversity-score gis:property-value feature "biodiv_scr"
+        set layers-score gis:property-value feature "layers_scr"
+        set archetypal-score gis:property-value feature "arch_scr"
+        set peace-score gis:property-value feature "peace_scr"
+        set CLM-score gis:property-value feature "CLM_scr"
+        set hidden? true  ; hide by default, can toggle for debugging
+      ]
+    ]
+  ]
 end
 
 ;; Locations
@@ -289,6 +331,7 @@ to move-residents
 
   ask residents with [ moving? ] [
     follow-path speed
+    measure-exposure
   ]
 end
 
@@ -376,17 +419,10 @@ end
 
 ;; CLM scores
 
-;to measure-exposure
-;  set view-distance-netlogo view-distance * meter-conversion-factor
-;  
-;  let archetypal-score measure-archetypal-score
-;  set CLM-archetypal-scores lput archetypal-score CLM-archetypal-scores
-;  
-;  ask min-one-of intersections [ distance myself ] [
-;    set sum-archetypal-scores sum-archetypal-scores + archetypal-score
-;    set visit-count visit-count + 1
-;  ]
-;end
+to measure-exposure
+  let sample min-one-of sample-points [ distance myself ]
+  set biodiversity-scores lput [biodiversity-score] of sample biodiversity-scores
+end
 
 
 ;; OUTPUT PROCEDURES ;;
