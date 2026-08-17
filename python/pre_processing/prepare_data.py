@@ -40,14 +40,17 @@ except (DataSourceError, RasterioIOError) as e:
 nw_nodes, nw_edges = nw.download_network()
 score_nodes = nw.split_network(nw_nodes, nw_edges)
 
-visibility_gdf = visibility_analysis([(node.x, node.y) for node in score_nodes.sample(25)], buildings, dtm, dtm_transform)
+visibility_gdf = visibility_analysis([(node.x, node.y) for node in score_nodes.sample(100)], buildings, dtm, dtm_transform)
 
 score_gdf = gpd.GeoDataFrame(visibility_gdf[["node_id", "layers_score"]], geometry=visibility_gdf.geometry, crs=study_area.crs)
 isovist_gdf = gpd.GeoDataFrame(visibility_gdf["node_id"], geometry=visibility_gdf["isovist"], crs=study_area.crs)
 
-isovist_gdf = isovist_gdf.clip(study_area, sort=True)
+print("Clipping isovists to study area")
+isovist_gdf = isovist_gdf.clip(study_area)
 
 score_gdf = score_gdf.merge(isovist_gdf, on="node_id", suffixes=(None, "_isovist"))
+
+total_nodes = len(score_gdf)
 
 biodiversity_file_paths = {
         "bee_richness": "data/source/overvecht_bee_richness.tif",
@@ -58,21 +61,40 @@ biodiversity_file_paths = {
 
 score_gdf["biodiversity_score"] = Parallel(n_jobs=-1)(
         delayed(compute_biodiversity_score)(node["properties"]["geometry_isovist"], trees, biodiversity_file_paths)
-        for node in tqdm(score_gdf.iterfeatures(), "Computing biodiversity scores")
+        for node in tqdm(score_gdf.iterfeatures(), "Computing biodiversity scores", total_nodes)
     )
 
 score_gdf["archetypal_score"] = Parallel(n_jobs=-1)(
         delayed(compute_archetypal_score)(node["geometry"]["coordinates"], node["properties"]["geometry_isovist"], monuments, trees, water, buildings)
-        for node in tqdm(score_gdf.iterfeatures(), "Computing archetypal elements scores")
+        for node in tqdm(score_gdf.iterfeatures(), "Computing archetypal elements scores", total_nodes)
     )
 
 score_gdf["peace_score"] = Parallel(n_jobs=-1)(
         delayed(compute_peace_score)(node["geometry"]["coordinates"], "data/source/overvecht_noise_raster.tif")
-        for node in tqdm(score_gdf.iterfeatures(), "Computing peace and silence scores")
+        for node in tqdm(score_gdf.iterfeatures(), "Computing peace and silence scores", total_nodes)
     )
+
+score_gdf = score_gdf.drop("geometry_isovist", axis=1)
 
 if not os.path.exists("data/pre_processing"):
     os.makedirs("data/pre_processing")
 
-score_gdf.drop("geometry_isovist", axis=1).to_file("data/pre_processing/overvecht_score_nodes.gpkg", layer="scores")
+score_gdf.to_file("data/pre_processing/overvecht_score_nodes.gpkg", layer="scores")
 isovist_gdf.to_file("data/pre_processing/overvecht_score_nodes.gpkg", layer="isovists")
+
+if not os.path.exists("data/model_input"):
+    os.makedirs("data/model_input")
+
+scores_model_input = score_gdf.to_crs("EPSG:32632").rename(columns={
+    "layers_score": "layers_scr",
+    "biodiversity_score": "biodiv_scr",
+    "archetypal_score": "arch_scr",
+    "peace_score": "peace_scr",
+})
+scores_model_input.to_file("data/model_input/score_points.shp")
+
+nw_edges.to_crs("EPSG:32632").to_file("data/model_input/street_network.shp")
+
+workplaces.geometry.to_crs("EPSG:32632").to_file("data/model_input/workplaces.shp",)
+homes.geometry.to_crs("EPSG:32632").to_file("data/model_input/homes.shp")
+shops.geometry.to_crs("EPSG:32632").to_file("data/model_input/shops.shp")
