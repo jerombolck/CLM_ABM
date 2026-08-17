@@ -7,17 +7,10 @@
         {
             "label": "Update and open .nlogox model",
             "type": "shell",
-            "command": "powershell",
+            "command": "bash",
             "args": [
-                "-Command",
-                "python",
-                "${workspaceFolder}/.vscode/replace_nlogox_code.py",
-                "${workspaceFolder}/Contemplative_Landscapes_ABM.nlogox",
-                "${workspaceFolder}/abm_src.nls",
-                "${workspaceFolder}/Contemplative_Landscapes_ABM.nlogox;",
-                "Invoke-Item",
-                "-Path",
-                "${workspaceFolder}/Contemplative_Landscapes_ABM.nlogox;"
+                "-c",
+                "python3 '${workspaceFolder}/.vscode/replace_nlogox_code.py' '${workspaceFolder}/Contemplative_Landscapes_ABM.nlogox' '${workspaceFolder}/src.nls' '${workspaceFolder}/Contemplative_Landscapes_ABM.nlogox' && /home/jerom/NetLogo/netlogo-gui.sh '${workspaceFolder}/Contemplative_Landscapes_ABM.nlogox'"
             ],
             "presentation": {
                 "echo": true,
