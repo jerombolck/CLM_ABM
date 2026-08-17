@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<model version="NetLogo 7.0.3" snapToGrid="true">
+<model version="NetLogo 7.0.4" snapToGrid="true">
   <code><![CDATA[extensions [gis nw time]
 
 ;; INIT ;;
@@ -15,15 +15,21 @@ breed [shop-locations shop-location]
 breed [intersections intersection]   ; nodes = steet intersections
 undirected-link-breed [streets street] ; edges = street segments
 
+breed [sample-points sample-point]
+
 streets-own [
   street-name
   length-meters
 ]
 
-intersections-own [
-  sum-archetypal-scores
-  visit-count
+sample-points-own [
+  biodiversity-score
+  layers-score
+  archetypal-score
+  peace-score
+  CLM-score
 ]
+
 
 ;; Resident breed
 
@@ -40,17 +46,23 @@ residents-own [
   next-node
   moving?
   
-  CLM-archetypal-scores
-  CLM-total-scores
+  biodiversity-scores
+  layers-scores
+  archetypal-scores
+  peace-scores
+  CLM-scores
 ]
 
 ;; Globals
 
 globals [
+  seed
+
   start-daytime
   time-of-day
   day
   
+  sample-point-dataset
   street-dataset
   work-dataset
   home-dataset
@@ -74,6 +86,9 @@ to setup
   set street-dataset gis:load-dataset "data/model_input/street_network.shp"
   let gis-envelope gis:envelope-of street-dataset
   gis:set-world-envelope (gis-envelope)
+
+  ; Load sample points
+  set sample-point-dataset gis:load-dataset "data/model_input/score_points.shp"
   
   ; Load other GIS data
   set home-dataset gis:load-dataset "data/model_input/homes.shp"
@@ -91,12 +106,13 @@ to setup
   let y-factor netlogo-height / gis-height
   set meter-conversion-factor min (list x-factor y-factor)
   
-  print (word "\t1 meter equals " meter-conversion-factor " net logo units.\n")
   print "Creating world..."
+  print (word "\t1 meter equals " meter-conversion-factor " net logo units.")
     
   ; Build the network and place locations
   set intersection-snap-distance 1 * meter-conversion-factor
   build-network
+  load-sample-points
   load-home-locations
   load-work-locations
   load-shop-locations
@@ -113,11 +129,10 @@ to reset
   set day 0
   set time-of-day time:anchor-to-ticks start-daytime 1.0 "minute"
   time:anchor-schedule start-daytime 1.0 "minute"
-  
-  ask intersections [
-    set sum-archetypal-scores 0
-    set visit-count 0
-  ]
+
+  set seed new-seed
+  random-seed seed
+  print (word "\tRandom seed for this simulation: " seed) 
   
   print (word "Adding " n-starting-residents " residents...")
   
@@ -177,6 +192,29 @@ to-report find-or-create-node [x y]
   report new-node
 end
 
+;; Sample points
+
+to load-sample-points
+  foreach gis:feature-list-of sample-point-dataset [ feature ->
+    let location gis:location-of gis:centroid-of feature
+
+    if not empty? location [
+      let x item 0 location
+      let y item 1 location
+      
+      create-sample-points 1 [
+        setxy x y
+        set biodiversity-score gis:property-value feature "biodiv_scr"
+        set layers-score gis:property-value feature "layers_scr"
+        set archetypal-score gis:property-value feature "arch_scr"
+        set peace-score gis:property-value feature "peace_scr"
+        set CLM-score gis:property-value feature "CLM_scr"
+        set hidden? true  ; hide by default, can toggle for debugging
+      ]
+    ]
+  ]
+end
+
 ;; Locations
 
 to load-home-locations
@@ -223,7 +261,7 @@ to load-shop-locations
       let x item 0 location
       let y item 1 location
       
-      create-work-locations 1 [
+      create-shop-locations 1 [
         setxy x y
         set color blue
         set shape "square"
@@ -249,25 +287,19 @@ to add-residents [n]
     move-to home-node
     set moving? false
     
-    set CLM-archetypal-scores (list)
-    set CLM-total-scores (list)
+    set current-goal "home"
+    schedule-next-goal
+
+    set biodiversity-scores (list)
+    set layers-scores (list)
+    set archetypal-scores (list)
+    set peace-scores (list)
+    set CLM-scores (list)
     
     set color cyan
     set shape "person"
     set size 20
   ]
-  create-schedule
-end
-
-to create-schedule
-   ; If the model has not yet started start the schedule today, otherwise start the schedule tomorrow
-  let schedule-start start-daytime
-  if ticks > 0 [
-    set schedule-start time:plus schedule-start (day + 1) "day"
-  ]
-  
-  time:schedule-repeating-event-with-period residents [ [] -> set-new-destination work-node ] (time:plus schedule-start 8 "hours") 1 "day"
-  time:schedule-repeating-event-with-period residents [ [] -> set-new-destination home-node ] (time:plus schedule-start 17 "hours") 1 "day"
 end
 
 ;; GO PROCEDURES ;;
@@ -281,7 +313,6 @@ to go
   move-residents
   
   ; Update outputs
-  update-heatmap
   update-average-plot
   update-target-resident-plot
 end
@@ -291,6 +322,7 @@ to move-residents
 
   ask residents with [ moving? ] [
     follow-path speed
+    measure-exposure
   ]
 end
 
@@ -300,10 +332,9 @@ to follow-path [ remaining-speed ]
   if remaining-speed <= 0 [ stop ]
     
   ifelse distance next-node < remaining-speed [
-    ; Node within reach, so move to it and measure exposure
+    ; Node within reach, so move to it
     set remaining-speed remaining-speed - distance next-node
     move-to next-node
-    ;measure-exposure
 
     ifelse next-node = destination [
       ; Destination reached
@@ -347,68 +378,54 @@ to set-new-destination [ new-destination ]
   ]
 end
 
-; to schedule-next-goal
-;   let today time:plus start-daytime day "days"
-  
-;   if current-goal = "home" [
-;     let departure-time time:plus today 8 "hours"
-    
-;     if time:is-after? time-of-day departure-time [
-;       set departure-time time:plus departure-time 1 "day"
-;     ]
-    
-;     time:schedule-event self [ [] -> 
-;       set-new-destination work-node 
-;     ] departure-time
-;   ]
-  
-;   if current-goal = "work" [
-;     let departure-time time:plus today 17 "hours"
-    
-;     if time:is-after? time-of-day departure-time [
-;       set departure-time time:plus departure-time 1 "day"
-;     ]
-    
-;     time:schedule-event self [ [] -> 
-;       set-new-destination home-node 
-;     ] departure-time
-;   ]
-; end
+;; Schedule
 
+to schedule-next-goal
+  let today time:plus start-daytime day "days"
+
+  ; Default to going home for the night
+  let next-goal "home"
+  let next-destination home-node
+  let next-goal-end time:plus (time:plus today 1 "day") 8 "hours"
+
+  (ifelse
+    current-goal = "home" [
+      set next-goal "work"
+      set next-destination work-node
+      set next-goal-end time:plus today 17 "hours"
+    ]
+    current-goal = "work" [
+      let p random 100
+
+      if p <= 40 [
+        set next-goal "shop" 
+        set next-destination one-of shop-locations
+        set next-goal-end time:plus time-of-day 30 "minutes"
+      ] 
+    ]
+  )
+
+  set current-goal next-goal
+  set-new-destination next-destination
+
+  time:schedule-event self [ [] -> 
+    schedule-next-goal
+  ] next-goal-end
+end
 
 ;; CLM scores
 
-;to measure-exposure
-;  set view-distance-netlogo view-distance * meter-conversion-factor
-;  
-;  let archetypal-score measure-archetypal-score
-;  set CLM-archetypal-scores lput archetypal-score CLM-archetypal-scores
-;  
-;  ask min-one-of intersections [ distance myself ] [
-;    set sum-archetypal-scores sum-archetypal-scores + archetypal-score
-;    set visit-count visit-count + 1
-;  ]
-;end
+to measure-exposure
+  let sample min-one-of sample-points [ distance myself ]
+  set biodiversity-scores lput [biodiversity-score] of sample biodiversity-scores
+  set layers-scores lput [layers-score] of sample layers-scores
+  set archetypal-scores lput [archetypal-score] of sample archetypal-scores
+  set peace-scores lput [peace-score] of sample peace-scores
+  set CLM-scores lput [CLM-score] of sample CLM-scores
+end
 
 
 ;; OUTPUT PROCEDURES ;;
-
-to update-heatmap
-  if target-score = "none" or not show-heatmap? [ 
-    ask intersections with [ size > 0 ] [ set size 0 ]
-    stop 
-  ]
-  
-  ask intersections with [ visit-count > 0 ] [
-    let sum-scores 0
-    
-    if target-score = "archetypal elements" [ set sum-scores sum-archetypal-scores ]
-    
-    let mean-score sum-scores / visit-count
-    set color scale-color green mean-score 1 6
-    if size = 0 [ set size 10 ]
-  ]
-end
 
 ;; Plots
 
@@ -428,6 +445,8 @@ to update-target-resident-plot
   
   let target one-of residents with [ resident-id = target-resident-id ]
   if target = nobody [ stop ]
+
+  ask target [ set color red ]
   
   let history [ get-score-history ] of target
   if empty? history [ stop ]
@@ -437,7 +456,11 @@ to update-target-resident-plot
 end
 
 to-report get-score-history
-  if target-score = "archetypal elements" [ report CLM-archetypal-scores ]
+  if target-score = "biodiversity" [ report biodiversity-scores ]
+  if target-score = "layers of the landscape" [ report layers-scores ]
+  if target-score = "archetypal elements" [ report archetypal-scores ]
+  if target-score = "character of peace and silence" [ report peace-scores ]
+  if target-score = "CLM score" [ report CLM-scores ]
   report []
 end]]></code>
   <widgets>
@@ -445,10 +468,10 @@ end]]></code>
     <button x="85" actionKey="G" y="20" height="40" disableUntilTicks="false" forever="true" kind="Observer" width="58">go</button>
     <button x="155" y="20" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="55">reset</button>
     <button x="16" y="140" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="110" display="add resident">add-residents 1</button>
-    <slider x="15" step="1" y="75" max="100" width="250" display="n-starting-residents" height="50" min="0" direction="Horizontal" default="20.0" variable="n-starting-residents"></slider>
+    <slider x="15" step="1" y="75" max="100" width="250" display="n-starting-residents" height="50" min="0" direction="Horizontal" default="10.0" variable="n-starting-residents"></slider>
     <button x="16" y="325" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="90" display="go home">ask residents [ set-new-destination home-node ]</button>
     <button x="116" y="325" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="109" display="go to work">ask residents [ set-new-destination work-node ]</button>
-    <slider x="15" step="0.1" y="195" max="25" width="250" display="resident-speed" height="50" min="1" direction="Horizontal" default="5.1" variable="resident-speed" units="km/h"></slider>
+    <slider x="15" step="0.1" y="195" max="25" width="250" display="resident-speed" height="50" min="1" direction="Horizontal" default="20.0" variable="resident-speed" units="km/h"></slider>
     <slider x="15" step="1" y="255" max="100" width="250" display="view-distance" height="50" min="0" direction="Horizontal" default="100.0" variable="view-distance" units="m"></slider>
     <monitor x="1315" precision="0" y="10" height="61" fontSize="11" width="100" display="day">day</monitor>
     <monitor x="1315" precision="17" y="80" height="60" fontSize="11" width="100" display="time">time:show time-of-day "HH:mm"</monitor>
@@ -470,11 +493,14 @@ end]]></code>
         <update></update>
       </pen>
     </plot>
-    <input x="15" multiline="false" y="635" height="60" variable="target-resident-id" type="number" width="250">5.0</input>
-    <chooser x="15" y="705" height="60" variable="target-score" current="1" width="250" display="target-score">
+    <input x="15" multiline="false" y="635" height="60" variable="target-resident-id" type="number" width="250">1.0</input>
+    <chooser x="15" y="705" height="60" variable="target-score" current="5" width="250" display="target-score">
       <choice type="string" value="none"></choice>
+      <choice type="string" value="biodiversity"></choice>
+      <choice type="string" value="layers of the landscape"></choice>
       <choice type="string" value="archetypal elements"></choice>
-      <choice type="string" value="total"></choice>
+      <choice type="string" value="character of peace and silence"></choice>
+      <choice type="string" value="CLM score"></choice>
     </chooser>
     <switch x="15" y="775" height="40" on="false" variable="show-heatmap?" width="145" display="show-heatmap?"></switch>
   </widgets>
