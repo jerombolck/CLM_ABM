@@ -2,3 +2,4 @@ data
 settings.json
 cache
 __pycache__
+mapper_netlogo.js
