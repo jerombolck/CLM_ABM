@@ -26,8 +26,9 @@ sample-points-own [
   archetypal-score
   peace-score
   CLM-score
-]
 
+  visits
+]
 
 ;; Resident breeds
 
@@ -52,6 +53,12 @@ residents-own [
   archetypal-scores
   peace-scores
   CLM-scores
+
+  mean-biodiversity-score
+  mean-layers-score
+  mean-archetypal-score
+  mean-peace-score
+  mean-CLM-score
 ]
 
 resident-groups-own [
@@ -361,6 +368,15 @@ to go
   update-target-resident-plot
 end
 
+to go-until
+  go
+
+  if day >= until-days [
+    export-results
+    stop
+  ]
+end
+
 to move-residents
   let speed (resident-speed / 3.6) * meter-conversion-factor * 60
 
@@ -478,6 +494,9 @@ end
 
 to measure-exposure
   let sample min-one-of sample-points [ distance myself ]
+
+  ask sample [set visits (visits + 1)]
+
   set biodiversity-scores lput [biodiversity-score] of sample biodiversity-scores
   set layers-scores lput [layers-score] of sample layers-scores
   set archetypal-scores lput [archetypal-score] of sample archetypal-scores
@@ -488,16 +507,31 @@ end
 
 ;; OUTPUT PROCEDURES ;;
 
+to-report get-target-score-history
+  if target-score = "biodiversity" [ report biodiversity-scores ]
+  if target-score = "layers of the landscape" [ report layers-scores ]
+  if target-score = "archetypal elements" [ report archetypal-scores ]
+  if target-score = "character of peace and silence" [ report peace-scores ]
+  if target-score = "CLM score" [ report CLM-scores ]
+  report []
+end
+
+to-report get-mean [ history ]
+  ifelse empty? history
+    [ report 0 ]
+    [ report mean history ]
+end
+
 ;; Plots
 
 to update-average-plot
   set-current-plot "Average Resident Score"
   set-current-plot-pen "average"
   
-  let residents-to-include residents with [ not empty? get-score-history ]
+  let residents-to-include residents with [ not empty? get-target-score-history ]
   if not any? residents-to-include [ stop ]
   
-  plot mean [ last get-score-history ] of residents-to-include
+  plot mean [ last get-target-score-history ] of residents-to-include
 end
 
 to update-target-resident-plot
@@ -509,18 +543,28 @@ to update-target-resident-plot
 
   ask target [ set color red ]
   
-  let history [ get-score-history ] of target
+  let history [ get-target-score-history ] of target
   if empty? history [ stop ]
   
   let i length history - 1
   plotxy i last history
 end
 
-to-report get-score-history
-  if target-score = "biodiversity" [ report biodiversity-scores ]
-  if target-score = "layers of the landscape" [ report layers-scores ]
-  if target-score = "archetypal elements" [ report archetypal-scores ]
-  if target-score = "character of peace and silence" [ report peace-scores ]
-  if target-score = "CLM score" [ report CLM-scores ]
-  report []
+;; Export
+
+to export-results
+  ask residents [
+    move-to home-node
+
+    set mean-biodiversity-score get-mean biodiversity-scores
+    set mean-layers-score get-mean layers-scores
+    set mean-archetypal-score get-mean archetypal-scores
+    set mean-peace-score get-mean peace-scores
+    set mean-CLM-score get-mean CLM-scores
+  ]
+  
+  let export-dataset gis:turtle-dataset residents
+  gis:store-dataset export-dataset "data/model_output/resident_scores.geojson"
+
+  print "Results exported to model_output/resident_scores.geojson"
 end

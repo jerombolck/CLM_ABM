@@ -28,8 +28,9 @@ sample-points-own [
   archetypal-score
   peace-score
   CLM-score
-]
 
+  visits
+]
 
 ;; Resident breeds
 
@@ -54,6 +55,12 @@ residents-own [
   archetypal-scores
   peace-scores
   CLM-scores
+
+  mean-biodiversity-score
+  mean-layers-score
+  mean-archetypal-score
+  mean-peace-score
+  mean-CLM-score
 ]
 
 resident-groups-own [
@@ -363,6 +370,15 @@ to go
   update-target-resident-plot
 end
 
+to go-until
+  go
+
+  if day >= until-days [
+    export-results
+    stop
+  ]
+end
+
 to move-residents
   let speed (resident-speed / 3.6) * meter-conversion-factor * 60
 
@@ -480,6 +496,9 @@ end
 
 to measure-exposure
   let sample min-one-of sample-points [ distance myself ]
+
+  ask sample [set visits (visits + 1)]
+
   set biodiversity-scores lput [biodiversity-score] of sample biodiversity-scores
   set layers-scores lput [layers-score] of sample layers-scores
   set archetypal-scores lput [archetypal-score] of sample archetypal-scores
@@ -490,16 +509,31 @@ end
 
 ;; OUTPUT PROCEDURES ;;
 
+to-report get-target-score-history
+  if target-score = "biodiversity" [ report biodiversity-scores ]
+  if target-score = "layers of the landscape" [ report layers-scores ]
+  if target-score = "archetypal elements" [ report archetypal-scores ]
+  if target-score = "character of peace and silence" [ report peace-scores ]
+  if target-score = "CLM score" [ report CLM-scores ]
+  report []
+end
+
+to-report get-mean [ history ]
+  ifelse empty? history
+    [ report 0 ]
+    [ report mean history ]
+end
+
 ;; Plots
 
 to update-average-plot
   set-current-plot "Average Resident Score"
   set-current-plot-pen "average"
   
-  let residents-to-include residents with [ not empty? get-score-history ]
+  let residents-to-include residents with [ not empty? get-target-score-history ]
   if not any? residents-to-include [ stop ]
   
-  plot mean [ last get-score-history ] of residents-to-include
+  plot mean [ last get-target-score-history ] of residents-to-include
 end
 
 to update-target-resident-plot
@@ -511,34 +545,36 @@ to update-target-resident-plot
 
   ask target [ set color red ]
   
-  let history [ get-score-history ] of target
+  let history [ get-target-score-history ] of target
   if empty? history [ stop ]
   
   let i length history - 1
   plotxy i last history
 end
 
-to-report get-score-history
-  if target-score = "biodiversity" [ report biodiversity-scores ]
-  if target-score = "layers of the landscape" [ report layers-scores ]
-  if target-score = "archetypal elements" [ report archetypal-scores ]
-  if target-score = "character of peace and silence" [ report peace-scores ]
-  if target-score = "CLM score" [ report CLM-scores ]
-  report []
+;; Export
+
+to export-results
+  ask residents [
+    move-to home-node
+
+    set mean-biodiversity-score get-mean biodiversity-scores
+    set mean-layers-score get-mean layers-scores
+    set mean-archetypal-score get-mean archetypal-scores
+    set mean-peace-score get-mean peace-scores
+    set mean-CLM-score get-mean CLM-scores
+  ]
+  
+  let export-dataset gis:turtle-dataset residents
+  gis:store-dataset export-dataset "data/model_output/resident_scores.geojson"
+
+  print "Results exported to model_output/resident_scores.geojson"
 end]]></code>
   <widgets>
     <view x="285" wrappingAllowedX="true" y="10" frameRate="30.0" minPycor="-300" height="610" showTickCounter="true" patchSize="1.0" fontSize="10" wrappingAllowedY="true" width="1013" tickCounterLabel="ticks" maxPycor="300" updateMode="0" maxPxcor="500" minPxcor="-500"></view>
-    <button x="85" actionKey="G" y="20" height="40" disableUntilTicks="false" forever="true" kind="Observer" width="58">go</button>
-    <button x="155" y="20" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="55">reset</button>
-    <button x="16" y="140" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="110" display="add resident">add-residents 1</button>
     <slider x="15" step="1" y="75" max="100" width="250" display="n-starting-residents" height="50" min="0" direction="Horizontal" default="10.0" variable="n-starting-residents"></slider>
-    <button x="16" y="325" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="90" display="go home">ask residents [ set-new-destination home-node ]</button>
-    <button x="116" y="325" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="109" display="go to work">ask residents [ set-new-destination work-node ]</button>
-    <slider x="15" step="0.1" y="195" max="25" width="250" display="resident-speed" height="50" min="1" direction="Horizontal" default="20.0" variable="resident-speed" units="km/h"></slider>
-    <slider x="15" step="1" y="255" max="100" width="250" display="view-distance" height="50" min="0" direction="Horizontal" default="100.0" variable="view-distance" units="m"></slider>
     <monitor x="1315" precision="0" y="10" height="61" fontSize="11" width="100" display="day">day</monitor>
     <monitor x="1315" precision="17" y="80" height="60" fontSize="11" width="100" display="time">time:show time-of-day "HH:mm"</monitor>
-    <button x="15" actionKey="S" y="20" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="60">setup</button>
     <plot x="285" autoPlotX="true" yMax="6.0" autoPlotY="false" y="635" xMin="0.0" height="175" legend="false" xMax="10.0" yMin="1.0" width="230" display="Average Resident Score">
       <setup></setup>
       <update></update>
@@ -566,6 +602,15 @@ end]]></code>
       <choice type="string" value="CLM score"></choice>
     </chooser>
     <switch x="15" y="775" height="40" on="false" variable="show-heatmap?" width="145" display="show-heatmap?"></switch>
+    <button x="155" y="20" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="110" display="add resident">add-residents 1</button>
+    <button x="90" y="20" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="55">reset</button>
+    <button x="15" actionKey="S" y="20" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="65">setup</button>
+    <slider x="15" step="0.1" y="140" max="25" width="250" display="resident-speed" height="50" min="1" direction="Horizontal" default="20.0" variable="resident-speed" units="km/h"></slider>
+    <button x="15" actionKey="G" y="210" height="75" disableUntilTicks="false" forever="true" kind="Observer" width="140">go</button>
+    <button x="165" y="250" height="35" disableUntilTicks="false" forever="false" kind="Observer" width="100" display="go to work">ask residents [ set-new-destination work-node ]</button>
+    <button x="165" y="210" height="35" disableUntilTicks="false" forever="false" kind="Observer" width="100" display="go home">ask residents [ set-new-destination home-node ]</button>
+    <button x="15" actionKey="U" y="295" height="65" disableUntilTicks="false" forever="true" kind="Observer" width="140" display="go until...">go-until</button>
+    <input x="165" multiline="false" y="295" height="65" variable="until-days" type="number" width="100">7.0</input>
   </widgets>
   <info>## WHAT IS IT?
 

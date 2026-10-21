@@ -34,13 +34,13 @@ try:
     dtm, dtm_extent, dtm_transform = load_terrain("data/source/overvecht_dtm_test.tif")
 
 except (DataSourceError, RasterioIOError) as e:
-    print(f"Cannot prepare data, because one or more of the required data files cannot be opened: {e}")
+    print(f"Cannot prepare data, because one or more of the required data files cannot be opened:\n{e}")
     exit()
 
 nw_nodes, nw_edges = nw.download_network()
 score_nodes = nw.split_network(nw_nodes, nw_edges)
 
-visibility_gdf = visibility_analysis([(node.x, node.y) for node in score_nodes.sample(100)], buildings, dtm, dtm_transform)
+visibility_gdf = visibility_analysis([(node.x, node.y) for node in score_nodes], buildings, dtm, dtm_transform)
 
 score_gdf = gpd.GeoDataFrame(visibility_gdf[["node_id", "layers_score"]], geometry=visibility_gdf.geometry, crs=study_area.crs)
 isovist_gdf = gpd.GeoDataFrame(visibility_gdf["node_id"], geometry=visibility_gdf["isovist"], crs=study_area.crs)
@@ -80,11 +80,14 @@ score_gdf = score_gdf.drop("geometry_isovist", axis=1)
 if not os.path.exists("data/pre_processing"):
     os.makedirs("data/pre_processing")
 
-score_gdf.to_file("data/pre_processing/overvecht_score_nodes.gpkg", layer="scores")
-isovist_gdf.to_file("data/pre_processing/overvecht_score_nodes.gpkg", layer="isovists")
-
 if not os.path.exists("data/model_input"):
     os.makedirs("data/model_input")
+
+if not os.path.exists("data/model_output"):
+    os.makedirs("data/model_output")
+
+score_gdf.to_file("data/pre_processing/overvecht_score_nodes.gpkg", layer="scores")
+isovist_gdf.to_file("data/pre_processing/overvecht_score_nodes.gpkg", layer="isovists")
 
 scores_model_input = score_gdf.to_crs("EPSG:32632").rename(columns={
     "layers_score": "layers_scr",
