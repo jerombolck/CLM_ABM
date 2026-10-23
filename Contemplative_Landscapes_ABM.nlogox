@@ -36,6 +36,7 @@ sample-points-own [
 
 breed [residents resident]
 breed [resident-groups resident-group]
+breed [export-residents export-resident]
 
 residents-own [
   resident-id
@@ -55,12 +56,6 @@ residents-own [
   archetypal-scores
   peace-scores
   CLM-scores
-
-  mean-biodiversity-score
-  mean-layers-score
-  mean-archetypal-score
-  mean-peace-score
-  mean-CLM-score
 ]
 
 resident-groups-own [
@@ -73,6 +68,17 @@ resident-groups-own [
   shop-probability
   shop-duration
   shop-end-spread
+]
+
+export-residents-own [
+  res_id
+  res_group
+
+  biodiv_scr
+  layers_scr
+  archtp_scr
+  peace_scr
+  CLM_scr
 ]
 
 ;; Globals
@@ -103,6 +109,8 @@ to setup
   set start-daytime time:create-with-format "01-01-2000 00:00:00" "dd-MM-yyyy HH:mm:ss"
   
   print "Loading GIS data..."
+
+  gis:load-coordinate-system "data/model_input/street_network.prj"
   
   ; Load streets
   set street-dataset gis:load-dataset "data/model_input/street_network.shp"
@@ -556,23 +564,31 @@ end
 
 to export-results
   ask residents [
-    move-to home-node
+    let res self
+    hatch-export-residents 1 [
+      move-to [home-node] of res 
 
-    set mean-biodiversity-score get-mean biodiversity-scores
-    set mean-layers-score get-mean layers-scores
-    set mean-archetypal-score get-mean archetypal-scores
-    set mean-peace-score get-mean peace-scores
-    set mean-CLM-score get-mean CLM-scores
+      set res_id [resident-id] of res
+      set res_group [group] of res
+
+      set biodiv_scr [get-mean biodiversity-scores] of res
+      set layers_scr [get-mean layers-scores] of res
+      set archtp_scr [get-mean archetypal-scores] of res
+      set peace_scr [get-mean peace-scores] of res
+      set CLM_scr [get-mean CLM-scores] of res
+
+      print "Exporting resident with a mean CLM score of:"
+      print CLM_scr
+    ]
   ]
   
-  let export-dataset gis:turtle-dataset residents
-  gis:store-dataset export-dataset "data/model_output/resident_scores.geojson"
+  let export-dataset gis:turtle-dataset export-residents
+  gis:store-dataset export-dataset "data/model_output/resident_scores"
 
-  print "Results exported to model_output/resident_scores.geojson"
+  print "Completed export to model_output/resident_scores.shp"
 end]]></code>
   <widgets>
     <view x="285" wrappingAllowedX="true" y="10" frameRate="30.0" minPycor="-300" height="610" showTickCounter="true" patchSize="1.0" fontSize="10" wrappingAllowedY="true" width="1013" tickCounterLabel="ticks" maxPycor="300" updateMode="0" maxPxcor="500" minPxcor="-500"></view>
-    <slider x="15" step="1" y="75" max="100" width="250" display="n-starting-residents" height="50" min="0" direction="Horizontal" default="10.0" variable="n-starting-residents"></slider>
     <monitor x="1315" precision="0" y="10" height="61" fontSize="11" width="100" display="day">day</monitor>
     <monitor x="1315" precision="17" y="80" height="60" fontSize="11" width="100" display="time">time:show time-of-day "HH:mm"</monitor>
     <plot x="285" autoPlotX="true" yMax="6.0" autoPlotY="false" y="635" xMin="0.0" height="175" legend="false" xMax="10.0" yMin="1.0" width="230" display="Average Resident Score">
@@ -601,16 +617,13 @@ end]]></code>
       <choice type="string" value="character of peace and silence"></choice>
       <choice type="string" value="CLM score"></choice>
     </chooser>
-    <switch x="15" y="775" height="40" on="false" variable="show-heatmap?" width="145" display="show-heatmap?"></switch>
-    <button x="155" y="20" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="110" display="add resident">add-residents 1</button>
-    <button x="90" y="20" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="55">reset</button>
-    <button x="15" actionKey="S" y="20" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="65">setup</button>
-    <slider x="15" step="0.1" y="140" max="25" width="250" display="resident-speed" height="50" min="1" direction="Horizontal" default="20.0" variable="resident-speed" units="km/h"></slider>
-    <button x="15" actionKey="G" y="210" height="75" disableUntilTicks="false" forever="true" kind="Observer" width="140">go</button>
-    <button x="165" y="250" height="35" disableUntilTicks="false" forever="false" kind="Observer" width="100" display="go to work">ask residents [ set-new-destination work-node ]</button>
-    <button x="165" y="210" height="35" disableUntilTicks="false" forever="false" kind="Observer" width="100" display="go home">ask residents [ set-new-destination home-node ]</button>
-    <button x="15" actionKey="U" y="295" height="65" disableUntilTicks="false" forever="true" kind="Observer" width="140" display="go until...">go-until</button>
-    <input x="165" multiline="false" y="295" height="65" variable="until-days" type="number" width="100">7.0</input>
+    <slider x="15" step="1" y="10" max="100" width="250" display="n-starting-residents" height="50" min="0" direction="Horizontal" default="10.0" variable="n-starting-residents"></slider>
+    <button x="15" actionKey="S" y="65" height="75" disableUntilTicks="false" forever="false" kind="Observer" width="250">setup</button>
+    <button x="15" y="145" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="250">reset</button>
+    <slider x="15" step="0.1" y="200" max="25" width="250" display="resident-speed" height="50" min="1" direction="Horizontal" default="20.0" variable="resident-speed" units="km/h"></slider>
+    <input x="160" multiline="false" y="335" height="65" variable="until-days" type="number" width="105">7.0</input>
+    <button x="15" actionKey="U" y="335" height="65" disableUntilTicks="false" forever="true" kind="Observer" width="140" display="go until...">go-until</button>
+    <button x="15" actionKey="G" y="255" height="75" disableUntilTicks="false" forever="true" kind="Observer" width="250">go</button>
   </widgets>
   <info>## WHAT IS IT?
 

@@ -34,6 +34,7 @@ sample-points-own [
 
 breed [residents resident]
 breed [resident-groups resident-group]
+breed [export-residents export-resident]
 
 residents-own [
   resident-id
@@ -53,12 +54,6 @@ residents-own [
   archetypal-scores
   peace-scores
   CLM-scores
-
-  mean-biodiversity-score
-  mean-layers-score
-  mean-archetypal-score
-  mean-peace-score
-  mean-CLM-score
 ]
 
 resident-groups-own [
@@ -71,6 +66,17 @@ resident-groups-own [
   shop-probability
   shop-duration
   shop-end-spread
+]
+
+export-residents-own [
+  res_id
+  res_group
+
+  biodiv_scr
+  layers_scr
+  archtp_scr
+  peace_scr
+  CLM_scr
 ]
 
 ;; Globals
@@ -101,6 +107,8 @@ to setup
   set start-daytime time:create-with-format "01-01-2000 00:00:00" "dd-MM-yyyy HH:mm:ss"
   
   print "Loading GIS data..."
+
+  gis:load-coordinate-system "data/model_input/street_network.prj"
   
   ; Load streets
   set street-dataset gis:load-dataset "data/model_input/street_network.shp"
@@ -554,17 +562,26 @@ end
 
 to export-results
   ask residents [
-    move-to home-node
+    let res self
+    hatch-export-residents 1 [
+      move-to [home-node] of res 
 
-    set mean-biodiversity-score get-mean biodiversity-scores
-    set mean-layers-score get-mean layers-scores
-    set mean-archetypal-score get-mean archetypal-scores
-    set mean-peace-score get-mean peace-scores
-    set mean-CLM-score get-mean CLM-scores
+      set res_id [resident-id] of res
+      set res_group [group] of res
+
+      set biodiv_scr [get-mean biodiversity-scores] of res
+      set layers_scr [get-mean layers-scores] of res
+      set archtp_scr [get-mean archetypal-scores] of res
+      set peace_scr [get-mean peace-scores] of res
+      set CLM_scr [get-mean CLM-scores] of res
+
+      print "Exporting resident with a mean CLM score of:"
+      print CLM_scr
+    ]
   ]
   
-  let export-dataset gis:turtle-dataset residents
-  gis:store-dataset export-dataset "data/model_output/resident_scores.geojson"
+  let export-dataset gis:turtle-dataset export-residents
+  gis:store-dataset export-dataset "data/model_output/resident_scores"
 
-  print "Results exported to model_output/resident_scores.geojson"
+  print "Completed export to model_output/resident_scores.shp"
 end
