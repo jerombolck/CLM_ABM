@@ -598,16 +598,13 @@ to export-results
       set archtp_scr [get-mean archetypal-scores] of res
       set peace_scr [get-mean peace-scores] of res
       set CLM_scr [get-mean CLM-scores] of res
-
-      print "Exporting resident with a mean CLM score of:"
-      print CLM_scr
     ]
   ]
   
   let export-dataset gis:turtle-dataset export-residents
-  gis:store-dataset export-dataset "data/model_output/resident_scores"
+  gis:store-dataset export-dataset (word "data/model_output/resident_scores_" model-run)
 
-  print "Completed export to model_output/resident_scores.shp"
+  print (word "Exported resident results to model_output/resident_scores_" model-run ".shp")
 end]]></code>
   <widgets>
     <view x="285" wrappingAllowedX="true" y="10" frameRate="30.0" minPycor="-300" height="610" showTickCounter="true" patchSize="1.0" fontSize="10" wrappingAllowedY="true" width="1013" tickCounterLabel="ticks" maxPycor="300" updateMode="0" maxPxcor="500" minPxcor="-500"></view>
@@ -646,6 +643,7 @@ end]]></code>
     <input x="160" multiline="false" y="335" height="65" variable="until-days" type="number" width="105">7.0</input>
     <button x="15" actionKey="U" y="335" height="65" disableUntilTicks="false" forever="true" kind="Observer" width="140" display="go until...">go-until</button>
     <button x="15" actionKey="G" y="255" height="75" disableUntilTicks="false" forever="true" kind="Observer" width="250">go</button>
+    <input x="15" multiline="false" y="415" height="60" variable="model-run" type="number" width="250">0.0</input>
   </widgets>
   <info>## WHAT IS IT?
 

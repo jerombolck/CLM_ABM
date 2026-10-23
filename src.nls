@@ -596,14 +596,11 @@ to export-results
       set archtp_scr [get-mean archetypal-scores] of res
       set peace_scr [get-mean peace-scores] of res
       set CLM_scr [get-mean CLM-scores] of res
-
-      print "Exporting resident with a mean CLM score of:"
-      print CLM_scr
     ]
   ]
   
   let export-dataset gis:turtle-dataset export-residents
-  gis:store-dataset export-dataset "data/model_output/resident_scores"
+  gis:store-dataset export-dataset (word "data/model_output/resident_scores_" model-run)
 
-  print "Completed export to model_output/resident_scores.shp"
+  print (word "Exported resident results to model_output/resident_scores_" model-run ".shp")
 end
