@@ -91,6 +91,7 @@ globals [
   start-daytime
   time-of-day
   day
+  today
   
   sample-point-dataset
   street-dataset
@@ -148,6 +149,8 @@ to setup
   load-home-locations
   load-work-locations
   load-shop-locations
+
+  nw:set-context intersections streets
   
   ; Initialize agents, time and ticks
   reset
@@ -158,9 +161,12 @@ to reset
   print "Resetting simulation..."
   
   reset-ticks
+
   ask resident-groups [ die ]
   ask residents [ die ]
+
   set day 0
+  set today start-daytime
   set time-of-day time:anchor-to-ticks start-daytime 1.0 "minute"
   time:anchor-schedule start-daytime 1.0 "minute"
 
@@ -356,7 +362,8 @@ to add-residents [n]
       move-to home-node
       set moving? false
       
-      set current-goal "home"
+      set current-goal "home-evening"
+      set destination home-node
 
       set biodiversity-scores (list)
       set layers-scores (list)
@@ -379,6 +386,7 @@ to go
   ; Advance time by 1 tick
   time:go-until (ticks + 1)
   set day floor time:difference-between start-daytime time-of-day "days" 
+  set today time:plus start-daytime day "days"
   
   ; Move residents
   move-residents
@@ -438,10 +446,10 @@ end
 to set-new-destination [ new-destination ]
   if new-destination = destination [ stop ]
   
-  nw:set-context intersections streets
   let path nobody
-  let current-node [nearest-intersection] of destination
+  let current-node destination
   set destination new-destination
+
   ask current-node [ set path nw:turtles-on-weighted-path-to new-destination length-meters ]
   
   ifelse path != false and length path > 1 [
@@ -460,23 +468,21 @@ end
 ;; Schedule
 
 to schedule-next-goal
-  let today time:plus start-daytime day "days"
-
   ; Default to going home for the night
-  let next-goal "home"
+  let next-goal "home-evening"
   let next-destination home-node
-  let next-goal-end random-normal-time 
-    (time:plus (time:plus today 1 "day") ([work-start-hour] of group) "hours")
-    ([work-start-spread] of group)
+  let next-goal-end time:plus today 1 "day"
 
   (ifelse
-    current-goal = "home" [
+    ; If at home in the morning, go to work
+    current-goal = "home-morning" [
       set next-goal "work"
       set next-destination work-node
       set next-goal-end random-normal-time
         (time:plus today ([work-end-hour] of group) "hours")
         ([work-end-spread] of group)
     ]
+    ; If at work, possibly go to a shop
     current-goal = "work" [
       let p random 100
       if p <= [shop-probability] of group [
@@ -487,8 +493,13 @@ to schedule-next-goal
           ([shop-end-spread] of group)
       ]
     ]
-    current-goal = "shop" [
-      ; Go home (default behaviour)
+    ; If at home in the evening, stay at home in the morning until it is time for work
+    current-goal = "home-evening" [
+      set next-goal "home-morning"
+      set next-destination home-node
+      set next-goal-end random-normal-time 
+        (time:plus time-of-day ([work-start-hour] of group) "hours")
+        ([work-start-spread] of group)
     ]
   )
 

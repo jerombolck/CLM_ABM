@@ -10,6 +10,10 @@ breed [home-locations home-location]
 breed [work-locations work-location]
 breed [shop-locations shop-location]
 
+home-locations-own [ nearest-intersection ]
+work-locations-own [ nearest-intersection ]
+shop-locations-own [ nearest-intersection ]
+
 ;; Network breeds
 
 breed [intersections intersection]   ; nodes = steet intersections
@@ -89,6 +93,7 @@ globals [
   start-daytime
   time-of-day
   day
+  today
   
   sample-point-dataset
   street-dataset
@@ -146,6 +151,8 @@ to setup
   load-home-locations
   load-work-locations
   load-shop-locations
+
+  nw:set-context intersections streets
   
   ; Initialize agents, time and ticks
   reset
@@ -156,9 +163,12 @@ to reset
   print "Resetting simulation..."
   
   reset-ticks
+
   ask resident-groups [ die ]
   ask residents [ die ]
+
   set day 0
+  set today start-daytime
   set time-of-day time:anchor-to-ticks start-daytime 1.0 "minute"
   time:anchor-schedule start-daytime 1.0 "minute"
 
@@ -250,6 +260,10 @@ end
 
 ;; Locations
 
+to-report find-nearest-intersection
+  report min-one-of intersections [ distance myself ]
+end
+
 to load-home-locations
   foreach gis:feature-list-of home-dataset [ feature ->
     let location gis:location-of gis:centroid-of feature 
@@ -263,6 +277,7 @@ to load-home-locations
         set color lime
         set shape "square"
         set size 4
+        set nearest-intersection find-nearest-intersection
       ]
     ]
   ]
@@ -281,6 +296,7 @@ to load-work-locations
         set color magenta
         set shape "square"
         set size 4
+        set nearest-intersection find-nearest-intersection
       ]
     ]
   ]
@@ -299,6 +315,7 @@ to load-shop-locations
         set color blue
         set shape "square"
         set size 4
+        set nearest-intersection find-nearest-intersection
       ]
     ]
   ]
@@ -341,14 +358,14 @@ to add-residents [n]
 
       set group g
       
-      set home-node min-one-of intersections [ distance one-of home-locations ]
-      set work-node min-one-of intersections [ distance one-of work-locations ]
+      set home-node [nearest-intersection] of one-of home-locations
+      set work-node [nearest-intersection] of one-of work-locations
       
       move-to home-node
       set moving? false
       
-      set current-goal "home"
-      schedule-next-goal
+      set current-goal "home-evening"
+      set destination home-node
 
       set biodiversity-scores (list)
       set layers-scores (list)
@@ -361,6 +378,8 @@ to add-residents [n]
       set size 20
     ]
   ]
+
+  ask residents [ schedule-next-goal ]
 end
 
 ;; GO PROCEDURES ;;
@@ -369,6 +388,7 @@ to go
   ; Advance time by 1 tick
   time:go-until (ticks + 1)
   set day floor time:difference-between start-daytime time-of-day "days" 
+  set today time:plus start-daytime day "days"
   
   ; Move residents
   move-residents
@@ -428,11 +448,10 @@ end
 to set-new-destination [ new-destination ]
   if new-destination = destination [ stop ]
   
-  set destination new-destination
-  
-  nw:set-context intersections streets
   let path nobody
-  let current-node min-one-of intersections [ distance myself ]
+  let current-node destination
+  set destination new-destination
+
   ask current-node [ set path nw:turtles-on-weighted-path-to new-destination length-meters ]
   
   ifelse path != false and length path > 1 [
@@ -451,35 +470,38 @@ end
 ;; Schedule
 
 to schedule-next-goal
-  let today time:plus start-daytime day "days"
-
   ; Default to going home for the night
-  let next-goal "home"
+  let next-goal "home-evening"
   let next-destination home-node
-  let next-goal-end random-normal-time 
-    (time:plus (time:plus today 1 "day") ([work-start-hour] of group) "hours")
-    ([work-start-spread] of group)
+  let next-goal-end time:plus today 1 "day"
 
   (ifelse
-    current-goal = "home" [
+    ; If at home in the morning, go to work
+    current-goal = "home-morning" [
       set next-goal "work"
       set next-destination work-node
       set next-goal-end random-normal-time
         (time:plus today ([work-end-hour] of group) "hours")
         ([work-end-spread] of group)
     ]
+    ; If at work, possibly go to a shop
     current-goal = "work" [
       let p random 100
       if p <= [shop-probability] of group [
         set next-goal "shop"
-        set next-destination one-of shop-locations
+        set next-destination [nearest-intersection] of one-of shop-locations
         set next-goal-end random-normal-time
           (time:plus time-of-day ([shop-duration] of group) "minutes")
           ([shop-end-spread] of group)
       ]
     ]
-    current-goal = "shop" [
-      ; Go home (default behaviour)
+    ; If at home in the evening, stay at home in the morning until it is time for work
+    current-goal = "home-evening" [
+      set next-goal "home-morning"
+      set next-destination home-node
+      set next-goal-end random-normal-time 
+        (time:plus time-of-day ([work-start-hour] of group) "hours")
+        ([work-start-spread] of group)
     ]
   )
 
