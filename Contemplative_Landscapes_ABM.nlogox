@@ -100,6 +100,7 @@ exp-residents-own [
 
 globals [
   seed
+  world-already-loaded?
 
   start-daytime
   time-of-day
@@ -121,8 +122,6 @@ globals [
 
 to setup
   clear-all
-  
-  set start-daytime time:create-with-format "01-01-2000 00:00:00" "dd-MM-yyyy HH:mm:ss"
   
   print "Loading GIS data..."
 
@@ -178,6 +177,8 @@ to reset
   ask resident-groups [ die ]
   ask residents [ die ]
 
+  set start-daytime time:create-with-format "01-01-2000 00:00:00" "dd-MM-yyyy HH:mm:ss"
+
   set day 0
   set today start-daytime
   set time-of-day time:anchor-to-ticks start-daytime 1.0 "minute"
@@ -192,6 +193,16 @@ to reset
 
   print (word "Adding " n-starting-residents " residents...")
   add-residents n-starting-residents
+end
+
+to setup-or-reset
+  ;; Initializes a fresh model world, only calling the setup procedure the first time this procedure is called.
+  ;; Specifically intended for behevior space parallel runs.
+  if world-already-loaded? != true [
+    setup
+    set world-already-loaded? true
+  ]
+  reset
 end
 
 ;; Network
@@ -1560,8 +1571,7 @@ end]]></code>
   <previewCommands>setup repeat 75 [ go ]</previewCommands>
   <experiments>
     <experiment name="Monte Carlo" repetitions="1" sequentialRunOrder="true" runMetricsEveryStep="true">
-      <preExperiment>setup</preExperiment>
-      <setup>reset</setup>
+      <setup>setup-or-reset</setup>
       <go>go-until</go>
       <constants>
         <steppedValueSet variable="model-run" first="0" step="1" last="99"></steppedValueSet>
