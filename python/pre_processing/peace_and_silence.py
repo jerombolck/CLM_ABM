@@ -9,7 +9,19 @@ def compute_peace_score(location, noise_file_path):
         row, col = noise_dataset.index(location[0], location[1])
         noise = noise_data[row, col]
 
-    peace_score = np.clip(int((noise - 40) / 5), 1, 6)
+    if noise < 40:
+        peace_score = 6
+    elif noise < 50:
+        peace_score = 5
+    elif noise < 55:
+        peace_score = 4
+    elif noise < 60:
+        peace_score = 3
+    elif noise < 70:
+        peace_score = 2
+    else:
+        peace_score = 1
+    
     return peace_score
 
 
