@@ -15,26 +15,15 @@ def compute_layers_score(ray_lengths, foreground_dist = 200 , background_dist = 
     has_middleground = n_middleground_rays / n_rays > 0.05
     has_background = n_background_rays / n_rays > 0.05
 
-    normalized_stds = []
+    layers_present = has_background + has_middleground + has_foreground
 
-    if has_foreground:
-        max_std = foreground_dist / 2
-        normalized_stds.append(np.std(foreground_rays)/max_std)
-    if has_middleground:
-        max_std = (background_dist - foreground_dist) / 2
-        normalized_stds.append(np.std(middleground_rays)/max_std)
-    if has_background:
-        max_std = (500 - background_dist) / 2
-        normalized_stds.append(np.std(background_rays)/max_std)
-
-    if len(normalized_stds) == 0:
-        return 1
-    
-    mean_normalized_std = np.clip(1 - np.mean(normalized_stds), 0, 1)
-
-    if has_foreground and has_background and has_middleground:
-        layers_score = mean_normalized_std * 7
+    if layers_present == 2 and not has_background:
+        layers_score = 2
+    elif (layers_present == 2 and has_background) or (layers_present == 3 and not has_background):
+        layers_score = 4
+    elif layers_present == 3 and has_background:
+        layers_score = 6
     else:
-        layers_score = mean_normalized_std * 4
+        layers_score = 1
 
     return layers_score
