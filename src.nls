@@ -18,6 +18,7 @@ breed [intersections intersection]   ; nodes = steet intersections
 undirected-link-breed [streets street] ; edges = street segments
 
 breed [sample-points sample-point]
+breed [exp-sample-points exp-sample-point]
 
 streets-own [
   street-name
@@ -34,11 +35,21 @@ sample-points-own [
   visits
 ]
 
+exp-sample-points-own [
+  biodiv_scr
+  layers_scr
+  archtp_scr
+  peace_scr
+  CLM_scr
+
+  visits
+]
+
 ;; Resident breeds
 
 breed [residents resident]
 breed [resident-groups resident-group]
-breed [export-residents export-resident]
+breed [exp-residents exp-resident]
 
 residents-own [
   resident-id
@@ -72,7 +83,7 @@ resident-groups-own [
   shop-end-spread
 ]
 
-export-residents-own [
+exp-residents-own [
   res_id
   res_group
 
@@ -251,6 +262,7 @@ to load-sample-points
         set peace-score gis:property-value feature "peace_scr"
         set CLM-score gis:property-value feature "CLM_scr"
         set hidden? true  ; hide by default, can toggle for debugging
+        set visits 0
       ]
     ]
   ]
@@ -583,9 +595,14 @@ end
 ;; Export
 
 to export-results
+  export-residents
+  export-sample-points
+end
+
+to export-residents
   ask residents [
     let res self
-    hatch-export-residents 1 [
+    hatch-exp-residents 1 [
       move-to [home-node] of res 
 
       set res_id [resident-id] of res
@@ -599,8 +616,34 @@ to export-results
     ]
   ]
   
-  let export-dataset gis:turtle-dataset export-residents
+  let export-dataset gis:turtle-dataset exp-residents
   gis:store-dataset export-dataset (word "data/model_output/resident_scores_" model-run)
 
+  ask exp-residents [die]
+
   print (word "Exported resident results to model_output/resident_scores_" model-run ".shp")
+end
+
+to export-sample-points
+  ask sample-points [
+    let sp self
+    hatch-exp-sample-points 1 [
+      move-to sp
+
+      set visits [visits] of sp
+
+      set biodiv_scr [biodiversity-score] of sp
+      set layers_scr [layers-score] of sp
+      set archtp_scr [archetypal-score] of sp
+      set peace_scr [peace-score] of sp
+      set CLM_scr [CLM-score] of sp
+    ]
+  ]
+  
+  let export-dataset gis:turtle-dataset exp-sample-points
+  gis:store-dataset export-dataset (word "data/model_output/score_points_" model-run)
+
+  ask exp-sample-points [die]
+
+  print (word "Exported score point results to model_output/score_points_" model-run ".shp")
 end
