@@ -22,7 +22,7 @@ breed [exp-sample-points exp-sample-point]
 
 streets-own [
   street-name
-  length-meters
+  street-length
 ]
 
 sample-points-own [
@@ -214,7 +214,7 @@ to build-network
           if previous-node != nobody and previous-node != current-node [
             ask previous-node [
               create-street-with current-node [
-                set length-meters gis:property-value feature "length"
+                set street-length link-length
                 set color gray
               ]
             ]
@@ -462,7 +462,7 @@ to set-new-destination [ new-destination ]
   let current-node destination
   set destination new-destination
 
-  ask current-node [ set path nw:turtles-on-weighted-path-to new-destination length-meters ]
+  ask current-node [ set path nw:turtles-on-weighted-path-to new-destination street-length ]
   
   ifelse path != false and length path > 1 [
     set color yellow

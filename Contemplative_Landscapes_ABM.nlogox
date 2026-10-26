@@ -24,7 +24,7 @@ breed [exp-sample-points exp-sample-point]
 
 streets-own [
   street-name
-  length-meters
+  street-length
 ]
 
 sample-points-own [
@@ -216,7 +216,7 @@ to build-network
           if previous-node != nobody and previous-node != current-node [
             ask previous-node [
               create-street-with current-node [
-                set length-meters gis:property-value feature "length"
+                set street-length link-length
                 set color gray
               ]
             ]
@@ -464,7 +464,7 @@ to set-new-destination [ new-destination ]
   let current-node destination
   set destination new-destination
 
-  ask current-node [ set path nw:turtles-on-weighted-path-to new-destination length-meters ]
+  ask current-node [ set path nw:turtles-on-weighted-path-to new-destination street-length ]
   
   ifelse path != false and length path > 1 [
     set color yellow
@@ -1558,4 +1558,29 @@ end]]></code>
     </shape>
   </linkShapes>
   <previewCommands>setup repeat 75 [ go ]</previewCommands>
+  <experiments>
+    <experiment name="Monte Carlo" repetitions="1" sequentialRunOrder="true" runMetricsEveryStep="true">
+      <preExperiment>setup</preExperiment>
+      <setup>reset</setup>
+      <go>go-until</go>
+      <constants>
+        <steppedValueSet variable="model-run" first="0" step="1" last="99"></steppedValueSet>
+        <enumeratedValueSet variable="until-days">
+          <value value="7"></value>
+        </enumeratedValueSet>
+        <enumeratedValueSet variable="n-starting-residents">
+          <value value="100"></value>
+        </enumeratedValueSet>
+        <enumeratedValueSet variable="target-resident-id">
+          <value value="1"></value>
+        </enumeratedValueSet>
+        <enumeratedValueSet variable="target-score">
+          <value value="&quot;CLM score&quot;"></value>
+        </enumeratedValueSet>
+        <enumeratedValueSet variable="resident-speed">
+          <value value="5"></value>
+        </enumeratedValueSet>
+      </constants>
+    </experiment>
+  </experiments>
 </model>
