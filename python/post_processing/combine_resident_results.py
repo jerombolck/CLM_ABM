@@ -4,7 +4,7 @@ import os
 
 gdf_list = []
 
-for i in range(0, 99):
+for i in range(0, 100):
     gdf_list.append(gpd.read_file(f"data/model_output/resident_scores_{i}.shp"))
 
 results = gpd.GeoDataFrame(pd.concat(gdf_list))
