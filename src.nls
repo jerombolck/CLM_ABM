@@ -617,7 +617,7 @@ to export-residents
       move-to [home-node] of res 
 
       set res_id [resident-id] of res
-      set res_group [group] of res
+      set res_group [[group-name] of group] of res
 
       set biodiv_scr [get-mean biodiversity-scores] of res
       set layers_scr [get-mean layers-scores] of res
