@@ -170,7 +170,7 @@ end
 to reset
   print "Resetting simulation..."
   
-  reset-ticks
+  reset-ticks                                                                                                                                                                                                                                                                                                                             
 
   ask resident-groups [ die ]
   ask residents [ die ]
@@ -179,6 +179,9 @@ to reset
 
   set day 0
   set today start-daytime
+
+  time:clear-schedule
+
   set time-of-day time:anchor-to-ticks start-daytime 1.0 "minute"
   time:anchor-schedule start-daytime 1.0 "minute"
 
