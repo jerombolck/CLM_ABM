@@ -172,7 +172,7 @@ end
 to reset
   print "Resetting simulation..."
   
-  reset-ticks
+  reset-ticks                                                                                                                                                                                                                                                                                                                             
 
   ask resident-groups [ die ]
   ask residents [ die ]
@@ -183,7 +183,7 @@ to reset
   set today start-daytime
 
   time:clear-schedule
-  
+
   set time-of-day time:anchor-to-ticks start-daytime 1.0 "minute"
   time:anchor-schedule start-daytime 1.0 "minute"
 
@@ -696,11 +696,22 @@ end]]></code>
     <slider x="15" step="1" y="10" max="200" width="250" display="n-starting-residents" height="50" min="0" direction="Horizontal" default="100.0" variable="n-starting-residents"></slider>
     <button x="15" actionKey="S" y="65" height="75" disableUntilTicks="false" forever="false" kind="Observer" width="250">setup</button>
     <button x="15" y="145" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="250">reset</button>
-    <slider x="15" step="0.1" y="200" max="25" width="250" display="resident-speed" height="50" min="1" direction="Horizontal" default="5.0" variable="resident-speed" units="km/h"></slider>
-    <input x="160" multiline="false" y="335" height="65" variable="until-days" type="number" width="105">7.0</input>
-    <button x="15" actionKey="U" y="335" height="65" disableUntilTicks="false" forever="true" kind="Observer" width="140" display="go until...">go-until</button>
-    <button x="15" actionKey="G" y="255" height="75" disableUntilTicks="false" forever="true" kind="Observer" width="250">go</button>
-    <input x="15" multiline="false" y="415" height="60" variable="model-run" type="number" width="250">0.0</input>
+    <input x="1315" multiline="false" y="220" height="65" variable="model-run" type="number" width="100">0.0</input>
+    <button x="15" actionKey="G" y="200" height="75" disableUntilTicks="false" forever="true" kind="Observer" width="250">go</button>
+    <chooser x="15" y="425" height="60" variable="shopping-activity" current="0" width="250" display="shopping-activity">
+      <choice type="string" value="baseline"></choice>
+      <choice type="string" value="low-activity"></choice>
+      <choice type="string" value="high-activity"></choice>
+    </chooser>
+    <slider x="15" step="0.1" y="490" max="25" width="250" display="resident-speed" height="50" min="1" direction="Horizontal" default="5.0" variable="resident-speed" units="km/h"></slider>
+    <chooser x="15" y="360" height="60" variable="scoring-scenario" current="0" width="250" display="scoring-scenario">
+      <choice type="string" value="baseline"></choice>
+      <choice type="string" value="less-strict-biodiversity"></choice>
+      <choice type="string" value="less-strict-archetypal-elements"></choice>
+      <choice type="string" value="combined-less-strict"></choice>
+    </chooser>
+    <input x="160" multiline="false" y="280" height="65" variable="until-days" type="number" width="105">7.0</input>
+    <button x="15" actionKey="U" y="280" height="65" disableUntilTicks="false" forever="true" kind="Observer" width="140" display="go until...">go-until</button>
   </widgets>
   <info>## WHAT IS IT?
 
@@ -1592,6 +1603,69 @@ end]]></code>
         </enumeratedValueSet>
         <enumeratedValueSet variable="resident-speed">
           <value value="5"></value>
+        </enumeratedValueSet>
+      </constants>
+    </experiment>
+    <experiment name="Scenario Analysis" repetitions="1" sequentialRunOrder="true" runMetricsEveryStep="true">
+      <setup>setup-or-reset</setup>
+      <go>go</go>
+      <constants>
+        <steppedValueSet variable="model-run" first="0" step="1" last="29"></steppedValueSet>
+        <enumeratedValueSet variable="scoring-scenario">
+          <value value="&quot;baseline&quot;"></value>
+          <value value="&quot;less-strict-biodiversity&quot;"></value>
+          <value value="&quot;less-strict-archetypal-elements&quot;"></value>
+          <value value="&quot;combined-less-strict&quot;"></value>
+        </enumeratedValueSet>
+        <enumeratedValueSet variable="shopping-activity">
+          <value value="&quot;baseline&quot;"></value>
+        </enumeratedValueSet>
+        <enumeratedValueSet variable="until-days">
+          <value value="7"></value>
+        </enumeratedValueSet>
+        <enumeratedValueSet variable="n-starting-residents">
+          <value value="100"></value>
+        </enumeratedValueSet>
+        <enumeratedValueSet variable="target-resident-id">
+          <value value="1"></value>
+        </enumeratedValueSet>
+        <enumeratedValueSet variable="target-score">
+          <value value="&quot;CLM score&quot;"></value>
+        </enumeratedValueSet>
+        <enumeratedValueSet variable="resident-speed">
+          <value value="5"></value>
+        </enumeratedValueSet>
+      </constants>
+    </experiment>
+    <experiment name="Sensitivity Analysis" repetitions="1" sequentialRunOrder="true" runMetricsEveryStep="true">
+      <setup>setup-or-reset</setup>
+      <go>go</go>
+      <constants>
+        <steppedValueSet variable="model-run" first="0" step="1" last="9"></steppedValueSet>
+        <enumeratedValueSet variable="scoring-scenario">
+          <value value="&quot;baseline&quot;"></value>
+        </enumeratedValueSet>
+        <enumeratedValueSet variable="shopping-activity">
+          <value value="&quot;baseline&quot;"></value>
+          <value value="&quot;low-activity&quot;"></value>
+          <value value="&quot;high-activity&quot;"></value>
+        </enumeratedValueSet>
+        <enumeratedValueSet variable="until-days">
+          <value value="7"></value>
+        </enumeratedValueSet>
+        <enumeratedValueSet variable="n-starting-residents">
+          <value value="100"></value>
+        </enumeratedValueSet>
+        <enumeratedValueSet variable="target-resident-id">
+          <value value="1"></value>
+        </enumeratedValueSet>
+        <enumeratedValueSet variable="target-score">
+          <value value="&quot;CLM score&quot;"></value>
+        </enumeratedValueSet>
+        <enumeratedValueSet variable="resident-speed">
+          <value value="5"></value>
+          <value value="15"></value>
+          <value value="20"></value>
         </enumeratedValueSet>
       </constants>
     </experiment>
