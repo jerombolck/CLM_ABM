@@ -72,29 +72,21 @@ def prepare_isovists(study_area, score_points, recompute=False):
         score_gdf.to_file("data/pre_processing/overvecht_score_nodes.gpkg", layer="scores")
         isovist_gdf.to_file("data/pre_processing/overvecht_score_nodes.gpkg", layer="isovists")
 
-    else:
-        score_gdf = gpd.read_file("data/pre_processing/overvecht_score_nodes.gpkg", layer="scores")
-        isovist_gdf = gpd.read_file("data/pre_processing/overvecht_score_nodes.gpkg", layer="isovists")
 
-    return score_gdf.merge(isovist_gdf, on="node_id", suffixes=(None, "_isovist"))
-
-
-def prepare_scores(score_gdf, alt_scenario="baseline"):
+def prepare_scores():
     trees = gpd.read_file("data/source/overvecht_trees.gpkg")
     water = gpd.read_file("data/source/overvecht_water.gpkg")
     monuments = gpd.read_file("data/source/overvecht_monuments.gpkg")
     buildings = gpd.read_file("data/source/overvecht_buildings.gpkg")
 
+    score_gdf = gpd.read_file("data/pre_processing/overvecht_score_nodes.gpkg", layer="scores")
+    isovist_gdf = gpd.read_file("data/pre_processing/overvecht_score_nodes.gpkg", layer="isovists")
+
+    score_gdf = score_gdf.merge(isovist_gdf, on="node_id", suffixes=(None, "_isovist"))
+
+    print(score_gdf.columns)
+
     total_score_points = len(score_gdf)
-
-    less_strict_biodiversity = False
-    exclude_water = False
-
-    if alt_scenario == "less_strict_biodiversity" or alt_scenario == "combined":
-        less_strict_biodiversity = True
-
-    if alt_scenario == "exclude_water" or alt_scenario == "combined":
-        exclude_water = True
 
     biodiversity_file_paths = {
             "bee_richness": "data/source/overvecht_bee_richness.tif",
@@ -107,9 +99,19 @@ def prepare_scores(score_gdf, alt_scenario="baseline"):
             delayed(compute_biodiversity_score)(node["properties"]["geometry_isovist"], trees, biodiversity_file_paths)
             for node in tqdm(score_gdf.iterfeatures(), "Computing biodiversity scores", total_score_points)
         )
+    
+    score_gdf["biodiversity_score_less_strict"] = Parallel(n_jobs=-1)(
+            delayed(compute_biodiversity_score)(node["properties"]["geometry_isovist"], trees, biodiversity_file_paths, True)
+            for node in tqdm(score_gdf.iterfeatures(), "Computing biodiversity scores", total_score_points)
+        )
 
     score_gdf["archetypal_score"] = Parallel(n_jobs=-1)(
             delayed(compute_archetypal_score)(node["geometry"]["coordinates"], node["properties"]["geometry_isovist"], monuments, trees, water, buildings)
+            for node in tqdm(score_gdf.iterfeatures(), "Computing archetypal elements scores", total_score_points)
+        )
+    
+    score_gdf["archetypal_score_less_strict"] = Parallel(n_jobs=-1)(
+            delayed(compute_archetypal_score)(node["geometry"]["coordinates"], node["properties"]["geometry_isovist"], monuments, trees, water, buildings, 60)
             for node in tqdm(score_gdf.iterfeatures(), "Computing archetypal elements scores", total_score_points)
         )
 
@@ -119,19 +121,31 @@ def prepare_scores(score_gdf, alt_scenario="baseline"):
         )
 
     score_gdf["CLM_score"] = score_gdf[["layers_score", "biodiversity_score", "archetypal_score", "peace_score"]].mean(axis=1)
+    score_gdf["CLM_score_less_strict_biodiversity"] = score_gdf[["layers_score", "biodiversity_score_less_strict", "archetypal_score", "peace_score"]].mean(axis=1)
+    score_gdf["CLM_score_less_strict_archetypal"] = score_gdf[["layers_score", "biodiversity_score", "archetypal_score_less_strict", "peace_score"]].mean(axis=1)
+    score_gdf["CLM_score_less_strict_combined"] = score_gdf[["layers_score", "biodiversity_score_less_strict", "archetypal_score_less_strict", "peace_score"]].mean(axis=1)
+    
     score_gdf = score_gdf.drop("geometry_isovist", axis=1)
+
+    score_gdf.to_file("data/pre_processing/overvecht_score_nodes.gpkg", layer="scores")
 
     scores_model_input = score_gdf.to_crs("EPSG:32632").rename(columns={
         "layers_score": "layers_scr",
         "biodiversity_score": "biodiv_scr",
-        "archetypal_score": "arch_scr",
+        "archetypal_score": "archtp_scr",
         "peace_score": "peace_scr",
         "CLM_score": "CLM_scr",
+        "biodiversity_score_less_strict": "biodiv_ls",
+        "archetypal_score_less_strict": "archtp_ls",
+        "CLM_score_less_strict_biodiversity": "CLM_ls_bio",
+        "CLM_score_less_strict_archetypal": "CLM_ls_arc",
+        "CLM_score_less_strict_combined": "CLM_ls_com",
+
     })
-    scores_model_input.to_file(f"data/model_input/score_points_{alt_scenario}.shp")
+    scores_model_input.to_file(f"data/model_input/score_points.shp")
 
 
-def prepare_data():
+if __name__ == "__main__":
     prepare_directories()
     prepare_network_locations()
 
@@ -139,8 +153,4 @@ def prepare_data():
     score_points = prepare_network()
     score_gdf = prepare_isovists(study_area, score_points)
 
-    prepare_scores(score_gdf)
-
-
-if __name__ == "__main__":
-    prepare_data()
+    prepare_scores()

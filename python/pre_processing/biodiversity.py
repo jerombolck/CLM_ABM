@@ -20,7 +20,7 @@ layer: park_street_trees — park_en_straatbomen_20250404
 path: /home/jerom/Thesis/CLM_ABM/data/qgis/park_street_trees.gpkg|layername=park_en_straatbomen_20250404
 """
 
-def compute_biodiversity_score(isovist, trees, raster_file_paths):
+def compute_biodiversity_score(isovist, trees, raster_file_paths, less_strict=False):
     visible_trees = trees.clip(isovist)
     
     n_visible_trees = len(visible_trees)
@@ -34,12 +34,21 @@ def compute_biodiversity_score(isovist, trees, raster_file_paths):
     mean_grass_perc = zonal_stats(isovist, raster_file_paths["grass_vegetation"])[0]["mean"]
     mean_shrub_perc = zonal_stats(isovist, raster_file_paths["shrub_vegetation"])[0]["mean"]
     mean_tree_perc = zonal_stats(isovist, raster_file_paths["tree_vegetation"])[0]["mean"]
-    
-    """    print(f"Mean bee richness: {mean_bee_richness}")
-    print(f"Visible trees: {n_visible_trees}")
-    print(f"Visible tree species: {n_visible_tree_species}")"""
 
     biodiversity_score = 1
+
+    if less_strict:
+        high_bee_richness_threshold = 70
+        medium_bee_richness_threshold = 50
+        high_tree_diversity_threshold = 30
+        medium_tree_diversity_threshold = 15
+        bosplantsoen_percentage_threshold = 0.2
+    else:
+        high_bee_richness_threshold = 90
+        medium_bee_richness_threshold = 70
+        high_tree_diversity_threshold = 40
+        medium_tree_diversity_threshold = 20
+        bosplantsoen_percentage_threshold = 0.3
 
     ## 'High diversity of plant and animal species'
     # High bee diversity increases score by 2
@@ -48,14 +57,14 @@ def compute_biodiversity_score(isovist, trees, raster_file_paths):
     # Medium tree diversity increases score by 1
     # Presence of any rare tree species increases score by 1
     if mean_bee_richness != None:
-        if mean_bee_richness > 90:
+        if mean_bee_richness > high_bee_richness_threshold:
             biodiversity_score += 2
-        elif mean_bee_richness > 70:
+        elif mean_bee_richness > medium_bee_richness_threshold:
             biodiversity_score += 1
 
-    if n_visible_tree_species > 40:
+    if n_visible_tree_species > high_tree_diversity_threshold:
         biodiversity_score += 2
-    elif n_visible_tree_species > 20:
+    elif n_visible_tree_species > medium_tree_diversity_threshold:
         biodiversity_score += 1
 
     if n_visible_rare_trees > 0:
@@ -72,7 +81,7 @@ def compute_biodiversity_score(isovist, trees, raster_file_paths):
     # Do not increase score if only one statement is true
     # Score cannot exceed 4 if none of the statements are true
     if biodiversity_score >= 4:
-        high_bospltsn_factor = n_visible_bospltsn_trees / n_visible_trees > 0.3
+        high_bospltsn_factor = n_visible_bospltsn_trees / n_visible_trees > bosplantsoen_percentage_threshold
         any_old_trees = n_visible_old_trees > 0
         layered_vegetation = mean_grass_perc > 10 and mean_shrub_perc > 10 and mean_tree_perc > 10
 
@@ -89,7 +98,7 @@ def compute_biodiversity_score(isovist, trees, raster_file_paths):
 
 
 if __name__ == "__main__":
-    isovists = gpd.read_file("data/overvecht_isovists.gpkg", layer="isovists")
+    isovists = gpd.read_file("data/pre_processing/overvecht_score_nodes.gpkg", layer="isovists").sample(100)
     trees = gpd.read_file("data/source/overvecht_trees.gpkg")
     file_paths = {
         "bee_richness": "data/source/overvecht_bee_richness.tif",
@@ -101,6 +110,10 @@ if __name__ == "__main__":
     scores = [compute_biodiversity_score(iso, trees, file_paths) for iso in isovists.geometry]
     print("Mean: ", sum(scores) / len(scores))
     
+    n_bospltsn_trees = len(trees[trees["Bospltsn"] == 1])
+
+    print(f"Percentage of trees that is in a bosplantsoen: {n_bospltsn_trees / len(trees)%2}")
+
     import matplotlib.pyplot as plt
 
     plt.bar(x=[1, 2, 3, 4, 5, 6], height=np.histogram(scores, bins=6, range=(1, 6))[0])

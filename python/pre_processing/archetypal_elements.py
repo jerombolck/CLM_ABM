@@ -4,7 +4,7 @@ from shapely import Point, buffer, from_wkt
 import numpy as np
 
 
-def compute_archetypal_score(location, isovist, monuments, trees, water_bodies, buildings, near_threshold=100):
+def compute_archetypal_score(location, isovist, monuments, trees, water_bodies, buildings, near_threshold=60):
     monuments_sjoin = gpd.sjoin_nearest(
         monuments,
         buildings,
