@@ -1,6 +1,6 @@
 import numpy as np
 
-def compute_layers_score(ray_lengths, foreground_dist = 200 , background_dist = 400):
+def compute_layers_score(ray_lengths, foreground_dist = 20 , background_dist = 400):
     n_rays = len(ray_lengths)
 
     foreground_rays = [x for x in ray_lengths if x <= foreground_dist]
@@ -19,9 +19,9 @@ def compute_layers_score(ray_lengths, foreground_dist = 200 , background_dist = 
 
     if layers_present == 2 and not has_background:
         layers_score = 2
-    elif (layers_present == 2 and has_background) or (layers_present == 3 and not has_background):
+    elif layers_present == 2 and has_background:
         layers_score = 4
-    elif layers_present == 3 and has_background:
+    elif layers_present == 3:
         layers_score = 6
     else:
         layers_score = 1
