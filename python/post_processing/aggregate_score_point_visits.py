@@ -42,7 +42,7 @@ aggregated = aggregated.rename(columns={
 
 aggregated_gdf = gpd.GeoDataFrame(aggregated)
 
-if not os.path.exists("data/results"):
-    os.makedirs("data/results")
+if not os.path.exists("data/post_processing"):
+    os.makedirs("data/post_processing")
 
-aggregated_gdf.to_file("data/results/score_points_aggregated.gpkg")
+aggregated_gdf.to_file("data/post_processing/score_points_aggregated.gpkg")

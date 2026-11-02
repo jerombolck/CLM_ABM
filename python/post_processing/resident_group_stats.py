@@ -1,7 +1,7 @@
 import geopandas as gpd
 import matplotlib.pyplot as plt
 
-resident_scores = gpd.read_file("data/results/resident_scores_combined.gpkg")
+resident_scores = gpd.read_file("data/post_processing/resident_scores_combined.gpkg")
 
 stats = resident_scores.groupby(by="RESGROUP").agg(
     mean_biodiversity_score = ("BIODIVSCR", "mean"),

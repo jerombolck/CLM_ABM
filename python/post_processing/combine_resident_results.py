@@ -10,7 +10,7 @@ for i in range(0, 100):
 results = gpd.GeoDataFrame(pd.concat(gdf_list))
 results = results.to_crs("EPSG:28992")
 
-if not os.path.exists("data/results"):
-    os.makedirs("data/results")
+if not os.path.exists("data/post_processing"):
+    os.makedirs("data/post_processing")
 
-results.to_file("data/results/resident_scores_combined.gpkg")
+results.to_file("data/post_processing/resident_scores_combined.gpkg")
