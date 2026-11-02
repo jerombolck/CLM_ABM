@@ -57,20 +57,22 @@ def prepare_network():
 
 
 def prepare_isovists(study_area, score_points, recompute=False):
+    if (not recompute and os.path.exists("data/pre_processing/overvecht_score_nodes.gpkg")):
+        return
+
     buildings = gpd.read_file("data/source/overvecht_buildings.gpkg")
     dtm, dtm_extent, dtm_transform = load_terrain("data/source/overvecht_dtm_test.tif")
 
-    if (recompute or not os.path.exists("data/pre_processing/overvecht_score_nodes.gpkg")):
-        visibility_gdf = visibility_analysis([(node.x, node.y) for node in score_points], buildings, dtm, dtm_transform)
+    visibility_gdf = visibility_analysis([(node.x, node.y) for node in score_points], buildings, dtm, dtm_transform)
 
-        score_gdf = gpd.GeoDataFrame(visibility_gdf[["node_id", "layers_score"]], geometry=visibility_gdf.geometry, crs=study_area.crs)
-        isovist_gdf = gpd.GeoDataFrame(visibility_gdf["node_id"], geometry=visibility_gdf["isovist"], crs=study_area.crs)
+    score_gdf = gpd.GeoDataFrame(visibility_gdf[["node_id", "layers_score"]], geometry=visibility_gdf.geometry, crs=study_area.crs)
+    isovist_gdf = gpd.GeoDataFrame(visibility_gdf["node_id"], geometry=visibility_gdf["isovist"], crs=study_area.crs)
 
-        print("Clipping isovists to study area")
-        isovist_gdf = isovist_gdf.clip(study_area)
+    print("Clipping isovists to study area")
+    isovist_gdf = isovist_gdf.clip(study_area)
 
-        score_gdf.to_file("data/pre_processing/overvecht_score_nodes.gpkg", layer="scores")
-        isovist_gdf.to_file("data/pre_processing/overvecht_score_nodes.gpkg", layer="isovists")
+    score_gdf.to_file("data/pre_processing/overvecht_score_nodes.gpkg", layer="scores")
+    isovist_gdf.to_file("data/pre_processing/overvecht_score_nodes.gpkg", layer="isovists")
 
 
 def prepare_scores():
@@ -151,6 +153,6 @@ if __name__ == "__main__":
 
     study_area = prepare_study_area()
     score_points = prepare_network()
-    score_gdf = prepare_isovists(study_area, score_points)
 
+    prepare_isovists(study_area, score_points, recompute=True)
     prepare_scores()
