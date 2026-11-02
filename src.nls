@@ -261,6 +261,26 @@ end
 ;; Sample points
 
 to load-sample-points
+  let archetypal-score-property "archtp_scr"
+  let biodiversity-score-property "biodiv_scr"
+  let CLM-score-property "CLM_scr"
+
+  if scoring-scenario = "less-strict-biodiversity" [
+    set archetypal-score-property "biodiv_ls"
+    set CLM-score-property "CLM_ls_bio"
+  ]
+
+  if scoring-scenario = "less-strict-archetypal-elements" [
+    set archetypal-score-property "archtp_ls"
+    set CLM-score-property "CLM_ls_arc"
+  ]
+
+  if scoring-scenario = "combined-less-strict" [
+    set archetypal-score-property "biodiv_ls"
+    set archetypal-score-property "archtp_ls"
+    set CLM-score-property "CLM_ls_com"
+  ]
+
   foreach gis:feature-list-of sample-point-dataset [ feature ->
     let location gis:location-of gis:centroid-of feature
 
@@ -270,12 +290,12 @@ to load-sample-points
       
       create-sample-points 1 [
         setxy x y
-        set biodiversity-score gis:property-value feature "biodiv_scr"
+        set biodiversity-score gis:property-value feature biodiversity-score-property
         set layers-score gis:property-value feature "layers_scr"
-        set archetypal-score gis:property-value feature "arch_scr"
+        set archetypal-score gis:property-value feature archetypal-score-property
         set peace-score gis:property-value feature "peace_scr"
-        set CLM-score gis:property-value feature "CLM_scr"
-        set hidden? true  ; hide by default, can toggle for debugging
+        set CLM-score gis:property-value feature CLM-score-property
+        set hidden? true
         set visits 0
       ]
     ]
