@@ -632,12 +632,20 @@ to export-residents
     ]
   ]
   
+  let export-path "data/model_output/resident_scores"
+
+  ifelse scoring-scenario != "baseline" [
+    set export-path (word export-path "_" scoring-scenario "_" model-run)
+  ] [
+    set export-path (word export-path "_" shopping-activity "_" resident-speed "kmh_" model-run)
+  ]  
+  
   let export-dataset gis:turtle-dataset exp-residents
-  gis:store-dataset export-dataset (word "data/model_output/resident_scores_" model-run)
+  gis:store-dataset export-dataset export-path
 
   ask exp-residents [die]
 
-  print (word "Exported resident results to model_output/resident_scores_" model-run ".shp")
+  print (word "Exported resident results to " export-path ".shp")
 end
 
 to export-sample-points
@@ -656,12 +664,20 @@ to export-sample-points
     ]
   ]
   
+  let export-path "data/model_output/score_points"
+
+  ifelse scoring-scenario != "baseline" [
+    set export-path (word export-path "_" scoring-scenario "_" model-run)
+  ] [
+    set export-path (word export-path "_" shopping-activity "_" resident-speed "kmh_" model-run)
+  ]  
+
   let export-dataset gis:turtle-dataset exp-sample-points
-  gis:store-dataset export-dataset (word "data/model_output/score_points_" model-run)
+  gis:store-dataset export-dataset export-path
 
   ask exp-sample-points [die]
 
-  print (word "Exported score point results to model_output/score_points_" model-run ".shp")
+  print (word "Exported score point results to " export-path ".shp")
 end]]></code>
   <widgets>
     <view x="285" wrappingAllowedX="true" y="10" frameRate="30.0" minPycor="-300" height="610" showTickCounter="true" patchSize="1.0" fontSize="10" wrappingAllowedY="true" width="1013" tickCounterLabel="ticks" maxPycor="300" updateMode="0" maxPxcor="500" minPxcor="-500"></view>
@@ -684,15 +700,6 @@ end]]></code>
         <update></update>
       </pen>
     </plot>
-    <input x="15" multiline="false" y="635" height="60" variable="target-resident-id" type="number" width="250">1.0</input>
-    <chooser x="15" y="705" height="60" variable="target-score" current="5" width="250" display="target-score">
-      <choice type="string" value="none"></choice>
-      <choice type="string" value="biodiversity"></choice>
-      <choice type="string" value="layers of the landscape"></choice>
-      <choice type="string" value="archetypal elements"></choice>
-      <choice type="string" value="character of peace and silence"></choice>
-      <choice type="string" value="CLM score"></choice>
-    </chooser>
     <slider x="15" step="1" y="10" max="200" width="250" display="n-starting-residents" height="50" min="0" direction="Horizontal" default="100.0" variable="n-starting-residents"></slider>
     <button x="15" actionKey="S" y="65" height="75" disableUntilTicks="false" forever="false" kind="Observer" width="250">setup</button>
     <button x="15" y="145" height="40" disableUntilTicks="false" forever="false" kind="Observer" width="250">reset</button>
@@ -712,6 +719,15 @@ end]]></code>
     </chooser>
     <input x="160" multiline="false" y="280" height="65" variable="until-days" type="number" width="105">7.0</input>
     <button x="15" actionKey="U" y="280" height="65" disableUntilTicks="false" forever="true" kind="Observer" width="140" display="go until...">go-until</button>
+    <input x="770" multiline="false" y="635" height="60" variable="target-resident-id" type="number" width="250">1.0</input>
+    <chooser x="770" y="705" height="60" variable="target-score" current="0" width="250" display="target-score">
+      <choice type="string" value="none"></choice>
+      <choice type="string" value="biodiversity"></choice>
+      <choice type="string" value="layers of the landscape"></choice>
+      <choice type="string" value="archetypal elements"></choice>
+      <choice type="string" value="character of peace and silence"></choice>
+      <choice type="string" value="CLM score"></choice>
+    </chooser>
   </widgets>
   <info>## WHAT IS IT?
 

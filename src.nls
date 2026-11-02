@@ -630,12 +630,20 @@ to export-residents
     ]
   ]
   
+  let export-path "data/model_output/resident_scores"
+
+  ifelse scoring-scenario != "baseline" [
+    set export-path (word export-path "_" scoring-scenario "_" model-run)
+  ] [
+    set export-path (word export-path "_" shopping-activity "_" resident-speed "kmh_" model-run)
+  ]  
+  
   let export-dataset gis:turtle-dataset exp-residents
-  gis:store-dataset export-dataset (word "data/model_output/resident_scores_" model-run)
+  gis:store-dataset export-dataset export-path
 
   ask exp-residents [die]
 
-  print (word "Exported resident results to model_output/resident_scores_" model-run ".shp")
+  print (word "Exported resident results to " export-path ".shp")
 end
 
 to export-sample-points
@@ -654,10 +662,18 @@ to export-sample-points
     ]
   ]
   
+  let export-path "data/model_output/score_points"
+
+  ifelse scoring-scenario != "baseline" [
+    set export-path (word export-path "_" scoring-scenario "_" model-run)
+  ] [
+    set export-path (word export-path "_" shopping-activity "_" resident-speed "kmh_" model-run)
+  ]  
+
   let export-dataset gis:turtle-dataset exp-sample-points
-  gis:store-dataset export-dataset (word "data/model_output/score_points_" model-run)
+  gis:store-dataset export-dataset export-path
 
   ask exp-sample-points [die]
 
-  print (word "Exported score point results to model_output/score_points_" model-run ".shp")
+  print (word "Exported score point results to " export-path ".shp")
 end
