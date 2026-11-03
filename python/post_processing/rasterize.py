@@ -2,6 +2,7 @@ import geopandas as gpd
 import numpy as np
 from osgeo import gdal, ogr
 import os
+import rasterio
 
 def nearest_neigbour(point_features_fp, point_features_zfield, output_fp, point_features_layer = None, cell_size = 10):
     study_area_fp = "data/source/study_area.gpkg"
@@ -46,4 +47,15 @@ def nearest_neigbour(point_features_fp, point_features_zfield, output_fp, point_
     gdal.Unlink(tmp_fp)
 
 
+def difference(rast1_fp, rast2_fp, out_fp):
+    with rasterio.open(rast1_fp) as rast1:
+        rast1_data = rast1.read()
 
+    with rasterio.open(rast2_fp) as rast2:
+        rast2_data = rast2.read()
+
+    diff_data = rast1_data - rast2_data
+    diff_kwargs = rast1.meta
+
+    with rasterio.open(out_fp, 'w', **diff_kwargs) as diff:
+        diff.write(diff_data.astype(rasterio.float32))
