@@ -108,7 +108,7 @@ def prepare_scores():
         )
 
     score_gdf["archetypal_score"] = Parallel(n_jobs=-1)(
-            delayed(compute_archetypal_score)(node["geometry"]["coordinates"], node["properties"]["geometry_isovist"], monuments, trees, water, buildings)
+            delayed(compute_archetypal_score)(node["geometry"]["coordinates"], node["properties"]["geometry_isovist"], monuments, trees, water, buildings, 20)
             for node in tqdm(score_gdf.iterfeatures(), "Computing archetypal elements scores", total_score_points)
         )
     
@@ -154,5 +154,5 @@ if __name__ == "__main__":
     study_area = prepare_study_area()
     score_points = prepare_network()
 
-    prepare_isovists(study_area, score_points, recompute=True)
+    prepare_isovists(study_area, score_points, recompute=False)
     prepare_scores()
