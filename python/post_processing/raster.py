@@ -4,7 +4,7 @@ from osgeo import gdal, ogr
 import os
 import rasterio
 
-def nearest_neigbour(point_features_fp, point_features_zfield, output_fp, point_features_layer = None, cell_size = 10):
+def grid_nearest_neigbour(point_features_fp, point_features_zfield, output_fp, point_features_layer = None, cell_size = 10):
     study_area_fp = "data/source/study_area.gpkg"
     study_area_dataset = ogr.Open(study_area_fp)
     study_area_layer = study_area_dataset.GetLayer()
