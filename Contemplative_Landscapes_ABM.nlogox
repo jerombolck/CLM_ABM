@@ -1674,8 +1674,8 @@ end]]></code>
       </constants>
     </experiment>
     <experiment name="Sensitivity Analysis" repetitions="1" sequentialRunOrder="true" runMetricsEveryStep="true">
-      <setup>setup-or-reset</setup>
-      <go>go</go>
+      <setup>setup</setup>
+      <go>go-until</go>
       <constants>
         <steppedValueSet variable="model-run" first="0" step="1" last="9"></steppedValueSet>
         <enumeratedValueSet variable="scoring-scenario">
