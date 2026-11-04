@@ -18,6 +18,8 @@ def combine_resident_scores(file_prefix, file_extension=".shp"):
     if not os.path.exists("data/post_processing"):
         os.makedirs("data/post_processing")
 
+    file_prefix = file_prefix.replace('-', '_')
+
     results.to_file(f"data/post_processing/{file_prefix}_combined.gpkg")
 
 
@@ -63,10 +65,12 @@ def aggregate_score_point_visits(file_prefix, file_extension=".shp"):
         ('CLMSCR', 'mean'): "CLM_score"
     })
 
-    aggregated_gdf = gpd.GeoDataFrame(aggregated)
+    aggregated_gdf = gpd.GeoDataFrame(aggregated).to_crs("EPSG:28992")
 
     if not os.path.exists("data/post_processing"):
         os.makedirs("data/post_processing")
+
+    file_prefix = file_prefix.replace('-', '_')
 
     aggregated_gdf.to_file(f"data/post_processing/{file_prefix}_aggregated.gpkg")
 
