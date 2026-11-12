@@ -369,6 +369,14 @@ end
 
 to load-resident-groups 
   let data csv:from-file "data/model_input/resident_groups.csv"
+
+  if shopping-activity = "low-activity" [
+    set data csv:from-file "data/model_input/resident_groups_less_active.csv"
+  ]
+  if shopping-activity = "high-activity" [
+    set data csv:from-file "data/model_input/resident_groups_more_active.csv"
+  ]
+
   let rows but-first data
   
   foreach rows [ row ->
