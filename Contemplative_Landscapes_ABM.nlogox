@@ -1651,7 +1651,7 @@ end]]></code>
       </constants>
     </experiment>
     <experiment name="Scenario Analysis" repetitions="1" sequentialRunOrder="true" runMetricsEveryStep="true">
-      <setup>setup-or-reset</setup>
+      <setup>setup</setup>
       <go>go</go>
       <constants>
         <steppedValueSet variable="model-run" first="0" step="1" last="29"></steppedValueSet>
