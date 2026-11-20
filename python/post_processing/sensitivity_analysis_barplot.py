@@ -87,7 +87,7 @@ def plot_scores_barplot(data, activity_order, base_colors, error="std",
     # Legend 2: speed (shade), drawn in neutral grey
     speed_handles = [Patch(facecolor=lighten("#555555", shade_amounts[i]),
                            label=f"{s} km/h") for i, s in enumerate(speeds)]
-    fig.legend(handles=speed_handles, title="Walking speed",
+    fig.legend(handles=speed_handles, title="Resident speed",
                loc="upper left", bbox_to_anchor=(0.82, 0.7), frameon=False)
     
     fig.subplots_adjust(right=0.82)
@@ -273,7 +273,7 @@ if __name__ == "__main__":
         error="std",
         outfile="figures/scores_by_group_activity_speed.png",
     )
-"""
+
     stats = build_appendix_table(
         data,
         activity_order=["low_activity", "baseline", "high_activity"],
@@ -282,4 +282,4 @@ if __name__ == "__main__":
     )
 
     wide = export_appendix_tables(stats, "tables")
-    print(wide)"""
+    print(wide)
