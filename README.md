@@ -48,12 +48,12 @@ The street network is a vector-based network of nodes and edges built from GIS s
 
 Home locations, work locations and shop locations are point vectors that describe the places that residents travel between. They represent resident homes, their workplaces, and shops they can visit respectively. These locations do not have state variables and do not change when the model is running. Sample points are also static point vectors. They are located at a regular 50 meter interval along all network edges. All sample points have score values for each CLM component and an overall CLM score.
 
-#### Scales
+### Scales
 - **Spatial extent:** the model covers the neighbourhood of Overvecht in Utrecht, the Netherlands, which is around 8.5 km².
 - **Spatial resolution:** 1 meter corresponds to 0.199 NetLogo units
 - **Temporal resolution:** one time step represents one minute
 
-### Process Overview and Scheduling
+## Process Overview and Scheduling
 All processes happen on an agent level. There are no environmental level processes in the model. Each time step the following steps are executed (see also the figure below):
 
 1. **Advance time:** Simulated time is advanced by one minute. Any agent who has reached their current goal’s end time is asked to schedule a new goal and determine a new destination according this new goal.
@@ -138,4 +138,8 @@ Residents that are moving will measure their exposure to the CLM components. Dur
 ## References
 Grimm, V., Railsback, S. F., Vincenot, C. E., Berger, U., Gallagher, C., DeAngelis, D. L., Edmonds, B., Ge, J., Giske, J., Groeneveld, J., Johnston, A. S. A., Milles, A., Nabe-Nielsen, J., Polhill, J. G., Radchuk, V., Rohwäder, M.-S., Stillman, R. A., Thiele, J. C., & Ayllón, D. (2020). The ODD Protocol for Describing Agent-Based and Other Simulation Models: A Second Update to Improve Clarity, Replication, and Structural Realism. Journal of Artificial Societies and Social Simulation, 23(2), 7. https://doi.org/10.18564/jasss.4259
 
+Leyk, S., Binder, C. R., & Nuckols, J. R. (2009). Spatial modeling of personalized exposure dynamics: The case of pesticide use in small-scale agricultural production landscapes of the developing world. International Journal of Health Geographics, 8, 17. https://doi.org/10.1186/1476-072X-8-17
+
 Olszewska-Guizzo, A., Sia, A., Fogel, A., & Ho, R. (2022). Features of urban green spaces associated with positive emotions, mindfulness and relaxation. Scientific Reports, 12(1), 20695. https://doi.org/10.1038/s41598-022-24637-0
+
+Yang, L. E., Hoffmann, P., Scheffran, J., Rühe, S., Fischereit, J., & Gasser, I. (2018). An Agent-Based Modeling Framework for Simulating Human Exposure to Environmental Stresses in Urban Areas. Urban Science, 2(2), 36. https://doi.org/10.3390/urbansci2020036
