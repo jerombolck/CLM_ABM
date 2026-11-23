@@ -60,11 +60,13 @@ All processes happen on an agent level. There are no environmental level process
 2. **Move residents:** Residents that are currently moving to a destination are moved along  their current path. How far they move along their path depends on their speed. The speed determines the distance travelled per time step. Residents continue to advance towards the next node in their path until they have covered this distance.
 3. **Record exposure:** Moving residents record the CLM (component) scores of their nearet sample point.
 
+<img width="652" height="490" alt="image" src="https://github.com/user-attachments/assets/59333dfb-be04-4fda-a9dc-abf1e576b842" />
 
 
 ## Design Concepts
 The model is based on the CLM and adapts the three-layer structure and the daily routines of agents from the framework by Yang et al. (2018). The three-layer structure was itself adapted from Leyk et al. (2009) and is adapted again for this thesis (see figure below). Selected components of the CLM are operationalized using GIS data and used as the main input features of the model.
 
+<img width="621" height="193" alt="image" src="https://github.com/user-attachments/assets/9d8b1397-0705-4e8b-bd25-e6f2ffa433fe" />
 
 
 ### Emergence
@@ -116,6 +118,7 @@ All input data is obtained and pre-processed in a GIS pipeline using Python befo
 ### Scheduling
 After a resident completes a goal, a new goal is scheduled. The figure below displays the logic behind this.
 
+<img width="672" height="361" alt="image" src="https://github.com/user-attachments/assets/e8c05b0e-27ea-447e-a80b-151bbd403d08" />
 
 
 ### Path Calculation
@@ -127,7 +130,10 @@ Residents that are not at their assigned destination will move towards it. The d
 Each timestep these residents advance along their assigned path until their reach their assigned destination. They proceed to the next intersection in their assigned path recursively. If the remaining distance the resident can travel in a timestep is more than the distance to the next intersection in their assigned path they move towards it and this intersection is removed from the path. This is repeated until the distance to the next intersection is larger the remaining distance the resident can travel. At this point the resident moves the remaining distance in the direction of the next node and the movement is concluded.
 
 ### CLM exposure
-Residents that are moving will measure their exposure to the CLM components. t each time timestep, after the resident has finished moving, it locates the nearest CLM score sample point and records the scores of that sample point.
+Residents that are moving will measure their exposure to the CLM components. During each time timestep, after the resident has finished moving, it locates the nearest CLM score sample point and records the scores of that sample point (see figure below).
+
+<img width="739" height="260" alt="image" src="https://github.com/user-attachments/assets/fe5e0c94-2fd7-4ff9-9a29-b48d21ec0d62" />
+
 
 ## References
 Grimm, V., Railsback, S. F., Vincenot, C. E., Berger, U., Gallagher, C., DeAngelis, D. L., Edmonds, B., Ge, J., Giske, J., Groeneveld, J., Johnston, A. S. A., Milles, A., Nabe-Nielsen, J., Polhill, J. G., Radchuk, V., Rohwäder, M.-S., Stillman, R. A., Thiele, J. C., & Ayllón, D. (2020). The ODD Protocol for Describing Agent-Based and Other Simulation Models: A Second Update to Improve Clarity, Replication, and Structural Realism. Journal of Artificial Societies and Social Simulation, 23(2), 7. https://doi.org/10.18564/jasss.4259
